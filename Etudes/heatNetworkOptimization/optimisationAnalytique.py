@@ -44,7 +44,7 @@ for k,ecoCons in enumerate(economicConstraint) :
              "fun":lambda Dij : ecoCons - hydroSim.economicCostFunc(Dij),
              "jac":lambda Dij : -hydroSim.economicCostGrad(Dij) }]
 
-    dictMin = conjugateGradient(hydroSim.energyCostFunc,
+    dictMin = SQP_BFGS(hydroSim.energyCostFunc,
                         Dk,
                         Dmin,
                         Dmax,
@@ -52,7 +52,7 @@ for k,ecoCons in enumerate(economicConstraint) :
                         returnDict=True,
                         constraints=cons,
                         penalityFactor=penalityFactor,
-                        penalInnerIter = 1,
+                        #penalInnerIter = 1,
                         tol=1e-4,
                         gtol=1e-4,
                         maxIter=250)
