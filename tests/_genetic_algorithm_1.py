@@ -43,5 +43,5 @@ plt.grid(True)
 plt.legend(fontsize=12)
 
 plt.tight_layout()
-plt.savefig("figure.svg",dpi=300)
+plt.savefig("figure3D.svg",dpi=300)
 plt.show()

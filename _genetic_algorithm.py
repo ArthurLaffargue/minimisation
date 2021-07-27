@@ -44,13 +44,13 @@ class optimizeMonoAG :
     def setSharingDist(self,sharingDist) :
         self.__sharingDist = sharingDist
 
-    def setSelectionMethod(self,method="SRWRS"):
+    def setSelectionMethod(self,method="tournament"):
         if method == "SRWRS" :
             self.__selection_function = self.__selection_SRWRS
         if method == "tournament" :
             self.__selection_function = self.__selection_tournament
 
-    def setConstraintMethod(self,method="feasibility"):
+    def setConstraintMethod(self,method="penality"):
         if method == "feasibility" or method == "penality" :
             self.__constraintMethod = method
 
@@ -708,8 +708,8 @@ class optiBiAG :
 
         npop = len(children_pop)
         nfeasible = len(feasible_pop)
-        omin1,omax1 = feasible_obj1.min(),feasible_obj1.max()
-        omin2,omax2 = feasible_obj2.min(),feasible_obj2.max()
+        # omin1,omax1 = feasible_obj1.min(),feasible_obj1.max()
+        # omin2,omax2 = feasible_obj2.min(),feasible_obj2.max()
 
 
 

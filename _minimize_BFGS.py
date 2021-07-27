@@ -128,7 +128,7 @@ def BFGS(f,xinit,xmin,xmax,tol=1e-6,gtol=1e-6,
 
 
 
-    minDict = {"method":"quasiNewtonBFGS",
+    minDict = { "method":"quasiNewtonBFGS",
                 "success":success,
                 "x":xk,
                 "fmin":fobj,

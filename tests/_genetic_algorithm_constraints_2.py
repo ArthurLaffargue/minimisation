@@ -1,18 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+from matplotlib import cm
 plt.rc('font',family='Serif')
 ## Fonction objectif
-epsilon = 0.002
-f0 = lambda x : ( x[0]**2 + x[1]**2 - x[0]*x[1]  + x[1] )
-f = lambda x : -f0(x)
-fc1 = lambda x : -(0.35*x**2 - 1.33 -x)
-c0 = lambda x : x[1] - fc1(x[0])
-c1 = lambda x : c0(x) + epsilon
-c2 = lambda x : -c0(x) + epsilon
 
-xmin = [-2,-2]
-xmax = [2,2]
+f0 = lambda x : (-(x[1] + 47) * np.sin(np.sqrt(abs(x[0]/2 + (x[1]  + 47))))
+                -x[0] * np.sin(np.sqrt(abs(x[0] - (x[1]  + 47)))))
+f = lambda x : -f0(x)
+fc1 = lambda x : -(0.001*x**3-x)
+c0 = lambda x : x[1] - fc1(x[0])
+
+xmin = [-75,-75]
+xmax = [75,75]
 ## Optimisation
 
 import sys
@@ -21,14 +21,15 @@ from _genetic_algorithm import optimizeMonoAG
 
 cons = [{'type': 'eq', 'fun': c0}]
 
-npop = 60
-ngen = npop*25
+npop = 120
+ngen = npop*10
 
 minAg = optimizeMonoAG(f,xmin,xmax,cons)
 minAg.setConstraintMethod("penality")
 minAg.setSelectionMethod("tournament")
-minAg.setPenalityParams(constraintAbsTol=0.01,penalityFactor=1e6,penalityGrowth=1.00)
-minAg.setElitisme(True)
+minAg.setCrossFactor(0.33)
+minAg.setPenalityParams(constraintAbsTol=0.1,penalityFactor=1e2,penalityGrowth=1.1)
+minAg.setElitisme(False)
 
 Xag,Yag = minAg.optimize(npop,ngen,verbose=False)
 fitnessArray = minAg.getStatOptimisation()
@@ -37,21 +38,20 @@ lastPop = minAg.getLastPopulation()
 ## SCIPY
 bounds = [(xi,xj) for xi,xj in zip(xmin,xmax)]
 startX = np.mean(bounds,axis=1)
-res = minimize(f0,startX,bounds=bounds,constraints=cons)
+res = minimize(f0,Xag,bounds=bounds,constraints=cons)
 xScipy = res.x
 
 ## Graphe
 
 
-n = 150
-x = np.linspace(-2,2,n)
-y = np.linspace(-2,2,n)
+n = 300
+x = np.linspace(-75,75,n)
+y = np.linspace(-75,75,n)
 X,Y = np.meshgrid(x,y)
 Z = np.zeros((2,n**2))
 Z[0] = X.flatten()
 Z[1] = Y.flatten()
-# W = (f0(Z)*(c1(Z)>=0)*(c2(Z)>=0)).reshape((n,n))
-W = (f(Z)).reshape((n,n))
+W = (f0(Z)).reshape((n,n))
 
 figContour = plt.figure("Contour")
 contour = plt.contour(X,Y,W,levels=np.linspace(W.min(),W.max(),25),cmap = 'PuBuGn')
@@ -71,8 +71,8 @@ plt.plot(Xag[0],Xag[1],label='Solution AG',
         markeredgecolor='k',
         markerfacecolor="r")
 
-plt.xlim(-2,2)
-plt.ylim(-2,2)
+plt.xlim(-75,75)
+plt.ylim(-75,75)
 plt.xlabel("x",fontsize=12)
 plt.ylabel("y",fontsize=12)
 plt.title("Optimisation bi-variables avec contrainte d'égalité",fontsize=14)
@@ -80,7 +80,7 @@ plt.grid(True)
 plt.legend(fontsize=12)
 plt.savefig("figure.svg",dpi=300)
 
-plt.figure(figsize=(8,4))
+plt.figure(2,figsize=(8,4))
 plt.plot(-fitnessArray,label='fmin',marker='o',ls='--',markeredgecolor='k',markerfacecolor="y",color='grey')
 plt.grid(True)
 plt.xlabel("Nombre de générations")
@@ -89,4 +89,22 @@ plt.title("Convergence de la solution")
 plt.legend(loc=0)
 plt.tight_layout()
 plt.savefig("convergence.svg",dpi=300)
+
+
+figure2 = plt.figure(3)
+ax1 = figure2.add_subplot(211)
+ax2 = figure2.add_subplot(212) 
+
+pts_curve = np.array([x,fc1(x)]).T
+filtre_curve = (pts_curve[:,1] <= 75) & (pts_curve[:,1] >= -75)
+pts_curve = pts_curve[filtre_curve]
+
+f0_curve = [f0(xi) for xi in pts_curve]
+ax1.plot(pts_curve[:,0],f0_curve,'.')
+ax1.plot(Xag[0],-Yag,"o")
+ax2.plot(pts_curve[:,1],f0_curve,'.')
+ax2.plot(Xag[1],-Yag,"o")
+
+
 plt.show()
+
