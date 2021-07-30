@@ -1,13 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+
 from matplotlib import cm
 plt.rc('font',family='Serif')
 ## Fonction objectif
 
 f0 = lambda x : (-(x[1] + 47) * np.sin(np.sqrt(abs(x[0]/2 + (x[1]  + 47))))
                 -x[0] * np.sin(np.sqrt(abs(x[0] - (x[1]  + 47)))))
-f = lambda x : -f0(x)
 fc1 = lambda x : -(0.001*x**3-x)
 c0 = lambda x : x[1] - fc1(x[0])
 
@@ -17,23 +17,21 @@ xmax = [75,75]
 
 import sys
 sys.path.append("..")
-from _genetic_algorithm import optimizeMonoAG
+from _genetic_algorithms import continousSingleObjectiveGA
 
 cons = [{'type': 'eq', 'fun': c0}]
 
 npop = 120
 ngen = npop*10
 
-minAg = optimizeMonoAG(f,xmin,xmax,cons)
-minAg.setConstraintMethod("penality")
-minAg.setSelectionMethod("tournament")
-minAg.setCrossFactor(0.33)
-minAg.setPenalityParams(constraintAbsTol=0.1,penalityFactor=1e2,penalityGrowth=1.1)
-minAg.setElitisme(False)
+ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,cons)
+ga_instance.setPenalityParams(constraintAbsTol=0.1,penalityFactor=1e3,penalityGrowth=1.1)
+ga_instance.setCrossFactor(1.33)
+ga_instance.setElitisme(False)
 
-Xag,Yag = minAg.optimize(npop,ngen,verbose=False)
-fitnessArray = minAg.getStatOptimisation()
-lastPop = minAg.getLastPopulation()
+Xag,Yag = ga_instance.minimize(npop,ngen,verbose=False)
+fitnessArray = ga_instance.getStatOptimisation()
+lastPop = ga_instance.getLastPopulation()
 
 ## SCIPY
 bounds = [(xi,xj) for xi,xj in zip(xmin,xmax)]
@@ -81,7 +79,7 @@ plt.legend(fontsize=12)
 plt.savefig("figure.svg",dpi=300)
 
 plt.figure(2,figsize=(8,4))
-plt.plot(-fitnessArray,label='fmin',marker='o',ls='--',markeredgecolor='k',markerfacecolor="y",color='grey')
+plt.plot(fitnessArray,label='fmin',marker='o',ls='--',markeredgecolor='k',markerfacecolor="y",color='grey')
 plt.grid(True)
 plt.xlabel("Nombre de générations")
 plt.ylabel("Fonction objectif")
@@ -101,9 +99,9 @@ pts_curve = pts_curve[filtre_curve]
 
 f0_curve = [f0(xi) for xi in pts_curve]
 ax1.plot(pts_curve[:,0],f0_curve,'.')
-ax1.plot(Xag[0],-Yag,"o")
+ax1.plot(Xag[0],Yag,"o")
 ax2.plot(pts_curve[:,1],f0_curve,'.')
-ax2.plot(Xag[1],-Yag,"o")
+ax2.plot(Xag[1],Yag,"o")
 
 
 plt.show()

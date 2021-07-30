@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.rc('font',family='Serif')
 ## Fonction objectif
-f = lambda x : -( (1-2*x)**2 + x**2 - x*(1-2*x) + x )*np.sin(2*np.pi*x)
+f = lambda x : ( (1-2*x)**2 + x**2 - x*(1-2*x) + x )*np.sin(2*np.pi*x)
 c = lambda x : -(1-2*x)
 x = np.linspace(-2,2,500)
 y = f(x)
@@ -12,15 +12,15 @@ y = f(x)
 
 import sys
 sys.path.append("..")
-from _genetic_algorithm import optimizeMonoAG
+from _genetic_algorithms import continousSingleObjectiveGA
 cons = [{'type': 'strictIneq', 'fun': c}]
 
 npop = 20
 ngen = npop*3
-minAg = optimizeMonoAG(f,[-2],[2],cons)
-Xag,Yag = minAg.optimize(npop,ngen,verbose=False)
-fitnessArray = minAg.getStatOptimisation()
-lastPop = minAg.getLastPopulation()
+ga_instance = continousSingleObjectiveGA(f,[-2],[2],cons)
+Xag,Yag = ga_instance.minimize(npop,ngen,verbose=False)
+fitnessArray = ga_instance.getStatOptimisation()
+lastPop = ga_instance.getLastPopulation()
 
 
 ## Graphe

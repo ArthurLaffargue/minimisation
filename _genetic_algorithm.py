@@ -195,7 +195,7 @@ class optimizeMonoAG :
                     penality[i] += gi**2
 
 
-        if self.__constraintMethod == "constraint" :
+        if self.__constraintMethod == "penality" :
             penality = self.__penalityFactor*penality
             penalObjective = objective - penality
         else :
@@ -623,7 +623,7 @@ class optiBiAG :
                     penality[i] += gi**2
 
 
-        if self.__constraintMethod == "constraint" :
+        if self.__constraintMethod == "penality" :
             penality = self.__penalityFactor*penality
             objective1 = objective1 - penality
             objective2 = objective2 - penality

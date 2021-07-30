@@ -12,15 +12,19 @@ y = f(x)
 
 import sys
 sys.path.append("..")
-from _simulated_annealing import simulatedAnnealing
+from _simulated_annealing import minimize_simulatedAnnealing
 cons = [{'type': 'strictIneq', 'fun': c1}]
 
 maxIter = 300
-minSA = simulatedAnnealing(f,[2.7],[7.5],maxIter=maxIter,constraints=cons)
-minSA.autoSetup(npermutations=100)
 Xsa = []
 for i in range(100) :
-    Xsa.append(minSA.minimize())
+    xi = minimize_simulatedAnnealing(f,
+                                    [2.7],
+                                    [7.5],
+                                    maxIter=maxIter,
+                                    constraints=cons,
+                                    autoSetUpIter=100)
+    Xsa.append(xi)
 Xsa = np.array(Xsa)
 Ysa = f(Xsa)
 

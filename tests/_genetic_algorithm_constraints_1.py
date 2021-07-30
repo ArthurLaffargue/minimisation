@@ -7,7 +7,6 @@ plt.rc('font',family='Serif')
 epsilon = 80
 f0 = lambda x : (-(x[1] + 47) * np.sin(np.sqrt(abs(x[0]/2 + (x[1]  + 47))))
                 -x[0] * np.sin(np.sqrt(abs(x[0] - (x[1]  + 47)))))
-f = lambda x : -f0(x)
 c1 = lambda x : -x[0] + 2*x[1] + 0.01*x[1]**2 - 1 
 c2 = lambda x : -c1(x) + 2*epsilon
 
@@ -17,17 +16,17 @@ xmax = [75,75]
 
 import sys
 sys.path.append("..")
-from _genetic_algorithm import optimizeMonoAG
+from _genetic_algorithms import continousSingleObjectiveGA
 
 cons = [{'type': 'ineq', 'fun': c1},
        {'type': 'ineq', 'fun': c2}]
 
 npop = 60
 ngen = npop*3
-minAg = optimizeMonoAG(f,xmin,xmax,cons)
-Xag,Yag = minAg.optimize(npop,ngen,verbose=False)
-fitnessArray = minAg.getStatOptimisation()
-lastPop = minAg.getLastPopulation()
+ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,cons)
+Xag,Yag = ga_instance.minimize(npop,ngen,verbose=False)
+fitnessArray = ga_instance.getStatOptimisation()
+lastPop = ga_instance.getLastPopulation()
 
 ## SCIPY
 bounds = [(xi,xj) for xi,xj in zip(xmin,xmax)]
