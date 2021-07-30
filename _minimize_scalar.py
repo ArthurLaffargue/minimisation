@@ -88,7 +88,7 @@ def goldenSearch(f,xmin,xmax,tol=1e-6,maxIter=500,constraints=[],
                 "residual":r,
                 "iterations":iter,
                 "functionCalls":funcCalls+1,
-                "derivfCalls":gradCalls}
+                "gradientCalls":gradCalls}
     if storeIterValues :
         minDict["xHistory"] = np.array(xHistory)
         minDict["fHistory"] = np.array(fHistory)
@@ -184,8 +184,7 @@ def scalarGradient(f,xinit,xmin,xmax,tol=1e-6,gtol=1e-6,maxIter=500,gf=None,
                                                     dh=1e-9,
                                                     stop_tolRatio=1e-2,
                                                     stop_gtolRatio=1e-2,
-                                                    precallfunc=None,
-                                                    backtracking=False) :
+                                                    precallfunc=None) :
 
     minTol = stop_tolRatio*tol
     minGradTol = stop_gtolRatio*gtol

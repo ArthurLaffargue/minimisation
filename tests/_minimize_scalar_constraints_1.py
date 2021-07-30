@@ -6,7 +6,7 @@ from scipy.optimize import minimize
 plt.rc('font',family='Serif')
 
 sys.path.append("..")
-from _minimize_scalar import *
+from minimization import minimize_scalar
 
 # FONCTION ET MINIMISATION
 xmin,xmax = 3,7
@@ -22,9 +22,9 @@ y = f(x)
 constraints = [{"type":"ineq",'fun':c}]
 
 start = time.time()
-dictgold = goldenSearch(f,xmin,xmax,returnDict=True,constraints=constraints)
+dictgold = minimize_scalar(f,xmin,xmax,returnDict=True,constraints=constraints,method='goldenSearch')
 inter = time.time()
-dictgrad = scalarGradient(f,xinit,xmin,xmax,returnDict=True,constraints=constraints)
+dictgrad = minimize_scalar(f,xmin,xmax,returnDict=True,constraints=constraints,method='scalarGradient',xinit=xinit)
 end = time.time()
 
 xgold = dictgold["x"]

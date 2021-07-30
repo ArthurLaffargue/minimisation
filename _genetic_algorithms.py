@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import numpy as np
 from numpy.lib.utils import _set_function_name
 import numpy.random as rd
@@ -7,9 +9,13 @@ class continousSingleObjectiveGA :
 
     def __init__(self,func,xmin,xmax,constraints=[],preprocess_function=None) :
         """
-        Instance de continousSingleObjectiveGA : algorithme genetique d'optimisation de fonction mono-objectif à variables reelles
-        Recherche d'un optimum global de la fonction f sur les bornes [xmin;xmax]. 
+        Instance de continousSingleObjectiveGA : 
+        
+        Algorithme genetique d'optimisation de fonction mono-objectif à variables reelles
+        Recherche d'un optimum global de la fonction f sur les bornes xmin-xmax. 
+
         Parameters : 
+        
             - func (callable) : 
                 Fonction objectif a optimiser de la forme f(x) ou x est l'argument de la fonction de forme scalaire ou array et renvoie un scalaire ou array.
 
@@ -28,6 +34,40 @@ class continousSingleObjectiveGA :
 
             - preprocess_function (callable or None) option : 
                 Definition d'une fonction sans renvoie de valeur à executer avant chaque evaluation de la fonction objectif func ou des contraintes.
+        
+
+
+        Example : 
+
+            func = lambda x : x[0]**2 + x[1]**2
+            xmin = [-1,-1]
+            xmax = [1,1]
+            ga_instance = continousSingleObjectiveGA(func,
+                                                    xmin,
+                                                    xmax)
+
+
+            resGA = ga_instance.minimize(20,100,verbose=False,returnDict=True)
+        
+            Ouputs : 
+                ############################################################
+
+                AG iterations completed     
+                Success :  True
+                Number of generations :  100
+                Population size :  20
+                Elapsed time : 0.162 s
+                ############################################################
+
+                resGA = {
+                    method  :  Continous Single Objective Genetic Algorithm
+                    optimization  :  minimization
+                    success  :  True
+                    x  :  [-0.00222156  0.00380852] #may vary
+                    f  :  1.9440156259914855e-05    #may vary
+                    constrViolation  :  []
+                    }
+
         """
 
         self.__xmin = np.minimum(xmin,xmax)
@@ -67,7 +107,9 @@ class continousSingleObjectiveGA :
     def setPreSelectNumber(self,nbr_preselected=2):
         """
         Change le nombre d'individus pre-selectionnes dans un mode de selection par tournois. 
+
         Parameter : 
+
             - nbr_preselected (int) option : nombre d'individus participants à chaque tournois. Superieur a 1.
         """
         self.__nPreSelected = nbr_preselected
@@ -75,7 +117,9 @@ class continousSingleObjectiveGA :
     def setMutationParameters(self,mutation_step=0.15,mutation_rate=0.25) : 
         """
         Change les parametres de mutation. 
+
         Parameters : 
+
             - mutation_step (float) option : limite de deplacement par mutation. Doit etre compris entre 0 et 1.
 
             - mutation_rate (float) option : probabilite de mutation. Doit etre compris entre 0 et 1.
@@ -89,7 +133,9 @@ class continousSingleObjectiveGA :
         """
         Change la limite de barycentre dans l'operateur de reproduction. Si egale a 1, les enfants seront strictement entre les parents. 
         Si superieur a 1, les enfants peuvent etre a l'exterieur du segment parent. 
+
         Parameter : 
+
             - crossover_factor (float) option : facteur de melange des individus parents ; 
         """
         self.__crossFactor = crossover_factor
@@ -97,7 +143,9 @@ class continousSingleObjectiveGA :
     def setSharingDist(self,sharingDist=None) :
         """
         Change le rayon de diversite des solutions.
+
         Parameter : 
+
             - sharingDict (float or None) option : Rayon de diversite de solution. Si None, le parametre est initialise a 1/(taille population).
         """
         self.__sharingDist = sharingDist
@@ -105,7 +153,9 @@ class continousSingleObjectiveGA :
     def setSelectionMethod(self,method="tournament"):
         """
         Change la methode de selection. 
+
         Parameter : 
+
             - method (str) option : Definition de la methode de selection. 
                 Si method = 'tournament' : selection par tournois. 
                 Si method = 'SRWRS' : selection par "Stochastic remainder without replacement selection" [Golberg]
@@ -120,7 +170,9 @@ class continousSingleObjectiveGA :
     def setConstraintMethod(self,method="penality"):
         """
         Change la methode de prise en compte des contraintes. 
+
         Parameter : 
+
             method (str) option : Definition de la methode de gestion des contraintes. 
                 Si method = 'penality' utilisation d'une penalisation quadratique. 
                 Si method = 'feasibility' les solutions non satisfaisante sont rejetees.
@@ -131,7 +183,9 @@ class continousSingleObjectiveGA :
     def setPenalityParams(self,constraintAbsTol=1e-3,penalityFactor=1e3,penalityGrowth=1.00):
         """
         Change le parametrage de la penalisation de contrainte. 
+
         Parameters : 
+
             - contraintAbsTol (float) option : tolerance des contraintes d'egalite. Si la contrainte i ||ci(xk)|| <= contraintAbsTol, la solution est viable. 
 
             - penalityFactor (float) option : facteur de penalisation. La nouvelle fonction objectif est evaluee par la forme suivante :
@@ -152,7 +206,9 @@ class continousSingleObjectiveGA :
         Booleen d'activation d'un operateur d'elitsime herite de la methode NSGA-II. 
         L'elitisme melange les populations parents et enfants pour en extraire les meilleurs individus. 
         Si cette option est desactivee, la methode de contrainte par faisabilite est impossible. L'algorithme utilisera une penalite.
+
         Parameter : 
+
             - elitisme (bool) option : actif (True) ou inactif (False)
 
         """
@@ -161,7 +217,9 @@ class continousSingleObjectiveGA :
     def redefine_objective(self,func):
         """
         Permet de redefinir la fonction objectif. 
+
         Parameter : 
+
             - func (callable) : 
                 Fonction objectif a optimiser de la forme f(x) ou x est l'argument de la fonction de forme scalaire ou array et renvoie un scalaire ou array.
         """
@@ -170,7 +228,9 @@ class continousSingleObjectiveGA :
     def redefine_constraints(self,constraints=[]):
         """
         Permet de redefinir les contraintes du probleme. 
+
         Parameter : 
+
             - constraints (List of dict) option : 
                     Definition des contraintes dans une liste de dictionnaires. Chaque dictionnaire contient les champs suivants 
                         type : str
@@ -184,7 +244,9 @@ class continousSingleObjectiveGA :
     def redefine_preprocess_func(self,preprocess_function=None):
         """
         Permet de redefinir la fonction de preprocessing. 
+
         Parameter
+
             - preprocess_function (callable or None) option : 
                 Definition d'une fonction sans renvoie de valeur à executer avant chaque evaluation de la fonction objectif func ou des contraintes.
         """
@@ -194,7 +256,9 @@ class continousSingleObjectiveGA :
     def define_initial_population(self,xstart):
         """
         Definition d'une population initiale. 
+
         Parameter : 
+
             - xstart (array(npop,ndof)) : 
                 xstart est la solution initiale. Ses dimensions doivent etre de (npop,ndof). 
                 npop la taille de la population et ndof le nombre de variable (degrees of freedom).
@@ -559,8 +623,10 @@ class continousSingleObjectiveGA :
         
     def minimize(self,npop,ngen,verbose=True,returnDict=False):
         """
-        Algorithme de minimisation de la fonction objectif sous contrainte. 
+        Algorithme de minimisation de la fonction objectif sous contrainte.
+
         Parameters : 
+
             - npop (int) : 
                 Taille de la population. Si npop est impair, l'algorithm l'augmente de 1. 
                 Usuellement pour un probleme sans contrainte une population efficace est situee entre 5 et 20 fois le nombre de variable.
@@ -577,6 +643,7 @@ class continousSingleObjectiveGA :
                 Si l'option est True alors l'algorithme retourne un dictionnaire. 
             
         Returns : 
+
             Si (returnDict = False) : 
                 tuple : xsolution, objective_solution (array(ndof), array(1)) ou (None, None)
                     - xsolution est la meilleure solution x historisee. Sa dimension correspond a ndof, la taille du probleme initial.
@@ -610,7 +677,9 @@ class continousSingleObjectiveGA :
     def maximize(self,npop,ngen,verbose=True,returnDict=False):
         """
         Algorithme de maximisation de la fonction objectif sous contrainte. 
+        
         Parameters : 
+
             - npop (int) : 
                 Taille de la population. Si npop est impair, l'algorithm l'augmente de 1. 
                 Usuellement pour un probleme sans contrainte une population efficace est situee entre 5 et 20 fois le nombre de variable.
@@ -627,6 +696,7 @@ class continousSingleObjectiveGA :
                 Si l'option est True alors l'algorithme retourne un dictionnaire. 
             
         Returns : 
+        
             Si (returnDict = False) : 
                 tuple : xsolution, objective_solution (array(ndof), array(1)) ou (None, None)
                     - xsolution est la meilleure solution x historisee. Sa dimension correspond a ndof, la taille du probleme initial.
@@ -667,14 +737,24 @@ class continousSingleObjectiveGA :
 
 
 
-class continousBiObjectiveGA():
+class continousBiObjective_NSGA():
     
 
-    def __init__(self,func1,func2,xmin,xmax,constraints=[],preprocess_function=None,func1_criterion="max",func2_criterion="max") :
+    def __init__(self,func1,func2,xmin,xmax,constraints=[],preprocess_function=None,func1_criterion="min",func2_criterion="min") :
         """
-        Instance de continousSingleObjectiveGA : algorithme genetique d'optimisation de fonction mono-objectif à variables reelles
-        Recherche d'un optimum global de la fonction f sur les bornes [xmin;xmax]. 
+        continousBiObjective_NSGA : 
+        
+        Algorithme genetique d'optimisation bi-objectif à variables reelles. 
+        Recherche du front de Pareto de fonctions scalaires à variables continues sur l'intervalle [xmin;xmax].
+
+        ---------------------------------------------------------------------------------------------------------
+        Source : 
+
+        A Fast and Elitist Multiobjective Genetic Algorithm : NSGA-II
+        Kalyanmoy Deb, Associate Member, IEEE, Amrit Pratap, Sameer Agarwal, and T. Meyarivan
+
         Parameters : 
+
             - func1 (callable) : 
                 Fonction objectif a optimiser de la forme f(x) ou x est l'argument de la fonction de forme scalaire ou array et renvoie un scalaire ou array.
 
@@ -710,6 +790,26 @@ class continousBiObjectiveGA():
                   >> else : maximisation
 
 
+        Example : 
+
+            import numpy as np 
+
+            xmin,xmax = [-2],[2]
+            x = np.linspace(xmin[0],xmax[0],150)
+            f1 = lambda x : (0.5*x**2+x)/4
+            f2 = lambda x : (0.5*x**2-x)/4
+            c = lambda x : np.sin(x)
+            cons = [{"type":'ineq','fun':c}]
+
+            nsga_instance = continousBiObjective_NSGA(f1,
+                                                    f2,
+                                                    xmin,
+                                                    xmax,
+                                                    constraints=cons,
+                                                    func1_criterion='min',
+                                                    func2_criterion='min')
+                                                    
+            xfront,f1front,f2front = nsga_instance.optimize(20,100,verbose=False)
         """
         self.__xmin = np.minimum(xmin,xmax)
         self.__xmax = np.maximum(xmin,xmax)
@@ -759,7 +859,9 @@ class continousBiObjectiveGA():
     def setPreSelectNumber(self,nbr_preselected=2):
         """
         Change le nombre d'individus pre-selectionnes dans un mode de selection par tournois. 
+
         Parameter : 
+
             - nbr_preselected (int) option : nombre d'individus participants à chaque tournois. Superieur a 1.
         """
         self.__nPreSelected = nbr_preselected
@@ -767,7 +869,9 @@ class continousBiObjectiveGA():
     def setMutationParameters(self,mutation_step=0.15,mutation_rate=0.25) : 
         """
         Change les parametres de mutation. 
+
         Parameters : 
+
             - mutation_step (float) option : limite de deplacement par mutation. Doit etre compris entre 0 et 1.
 
             - mutation_rate (float) option : probabilite de mutation. Doit etre compris entre 0 et 1.
@@ -780,7 +884,9 @@ class continousBiObjectiveGA():
         """
         Change la limite de barycentre dans l'operateur de reproduction. Si egale a 1, les enfants seront strictement entre les parents. 
         Si superieur a 1, les enfants peuvent etre a l'exterieur du segment parent. 
+
         Parameter : 
+
             - crossover_factor (float) option : facteur de melange des individus parents ; 
         """
         self.__crossFactor = crossover_factor
@@ -788,7 +894,9 @@ class continousBiObjectiveGA():
     def setSharingDist(self,sharingDist=None) :
         """
         Change le rayon de diversite des solutions.
+
         Parameter : 
+
             - sharingDict (float or None) option : Rayon de diversite de solution. Si None, le parametre est initialise a 1/(taille population).
         """
         self.__sharingDist = sharingDist
@@ -796,7 +904,9 @@ class continousBiObjectiveGA():
     def setConstraintMethod(self,method="penality"):
         """
         Change la methode de prise en compte des contraintes. 
+
         Parameter : 
+
             method (str) option : Definition de la methode de gestion des contraintes. 
                 Si method = 'penality' utilisation d'une penalisation quadratique. 
                 Si method = 'feasibility' les solutions non satisfaisante sont rejetees.
@@ -807,7 +917,9 @@ class continousBiObjectiveGA():
     def setPenalityParams(self,constraintAbsTol=1e-3,penalityFactor=1e3,penalityGrowth=1.00):
         """
         Change le parametrage de la penalisation de contrainte. 
+
         Parameters : 
+
             - contraintAbsTol (float) option : tolerance des contraintes d'egalite. Si la contrainte i ||ci(xk)|| <= contraintAbsTol, la solution est viable. 
 
             - penalityFactor (float) option : facteur de penalisation. La nouvelle fonction objectif est evaluee par la forme suivante :
@@ -826,7 +938,9 @@ class continousBiObjectiveGA():
     def redefine_constraints(self,constraints=[]):
         """
         Permet de redefinir les contraintes du probleme. 
+
         Parameter : 
+
             - constraints (List of dict) option : 
                     Definition des contraintes dans une liste de dictionnaires. Chaque dictionnaire contient les champs suivants 
                         type : str
@@ -839,7 +953,9 @@ class continousBiObjectiveGA():
     def redefine_preprocess_func(self,preprocess_function=None):
         """
         Permet de redefinir la fonction de preprocessing. 
-        Parameter
+
+        Parameter :
+
             - preprocess_function (callable or None) option : 
                 Definition d'une fonction sans renvoie de valeur à executer avant chaque evaluation de la fonction objectif func ou des contraintes.
         """
@@ -848,7 +964,9 @@ class continousBiObjectiveGA():
     def define_initial_population(self,xstart):
         """
         Definition d'une population initiale. 
+
         Parameter : 
+
             - xstart (array(npop,ndof)) : 
                 xstart est la solution initiale. Ses dimensions doivent etre de (npop,ndof). 
                 npop la taille de la population et ndof le nombre de variable (degrees of freedom).
@@ -868,7 +986,9 @@ class continousBiObjectiveGA():
     def setSelectionMethod(self,method="tournament"):
         """
         Change la methode de selection. 
+
         Parameter : 
+
             - method (str) option : Definition de la methode de selection. 
                 Si method = 'tournament' : selection par tournois. 
         """
@@ -878,7 +998,9 @@ class continousBiObjectiveGA():
     def redefine_objective(self,func1,func2,func1_criterion="max",func2_criterion="max"):
         """
         Permet de redefinir les fonctions objectifs. 
+
         Parameters : 
+
             - func1 (callable) : 
                 Fonction objectif a optimiser de la forme f(x) ou x est l'argument de la fonction de forme scalaire ou array et renvoie un scalaire ou array.
 
@@ -1344,10 +1466,12 @@ class continousBiObjectiveGA():
 
 
 
-    def optimize(self,npop,ngen,nfront=None,verbose=True,returnDict=False):
+    def optimize(self,npop,ngen,nfront=None,verbose=False,returnDict=False):
         """
         Algorithme d'optimisation bi-objectifs sous contrainte. 
+
         Parameters : 
+
             - npop (int) : 
                 Taille de la population. Si npop est impair, l'algorithm l'augmente de 1. 
                 Usuellement pour un probleme sans contrainte une population efficace est situee entre 5 et 20 fois le nombre de variable.
@@ -1367,6 +1491,7 @@ class continousBiObjectiveGA():
                 Si l'option est True alors l'algorithme retourne un dictionnaire. 
             
         Returns : 
+
             Si (returnDict = False) : 
                 tuple : xsolutions, objective1_solutions, objective2_solutions (array(ndof,nfront), array(nfront), array(nfront))
                     - xsolutions sont les solutions composants le front de Pareto.
@@ -1385,8 +1510,8 @@ class continousBiObjectiveGA():
         self.__runOptimization(npop, ngen, nfront=nfront, verbose=verbose)
 
         if returnDict : 
-            result = {"method":"Continous Single Objective Genetic Algorithm",
-                      "optimization" : "minimization",
+            result = {"method":"Continous Bi-Objective NSGA",
+                      "optimization" : "Pareto",
                       "success":self.__success,
                       "x" : self.__xfront,
                       "f1" : self.__f1front,
@@ -1397,25 +1522,69 @@ class continousBiObjectiveGA():
             return self.__xfront, self.__f1front, self.__f2front
 
 if __name__ == '__main__' : 
-    # x = np.linspace(-1,1)
-    # y = x**2
 
-    # ga_instance = continousSingleObjectiveGA(lambda x : x[0]**2 + x[1]**2,
-    #                                         [-1,-1],
-    #                                         [1,1])
-
-
-    # resGA = ga_instance.minimize(20,100,verbose=True,returnDict=True)
-
-    # for ri in resGA : 
-    #     print(ri," : ",resGA[ri])
-
-    f1 = lambda x : x**2+x-3
-    f2 = lambda x : x**2-x+2
-    nsga_instance = continousBiObjectiveGA(f1,f2,[-2],[2])
+    
+    import numpy as np 
+    import matplotlib.pyplot as plt 
+    
+    ### GA exemple 
+    ga_instance = continousSingleObjectiveGA(lambda x : x[0]**2 + x[1]**2,
+                                            [-1,-1],
+                                            [1,1])
 
 
-    # nsga_instance.setElitisme(True)
+    resGA = ga_instance.minimize(20,100,verbose=False,returnDict=True)
+
+    for ri in resGA : 
+         print(ri," : ",resGA[ri])
+
+
+    ### NSGA exemple
+    xmin,xmax = [-2],[2]
+    x = np.linspace(xmin[0],xmax[0],150)
+    f1 = lambda x : (0.5*x**2+x)/4
+    f2 = lambda x : (0.5*x**2-x)/4
+    c = lambda x : np.sin(x)
+    cons = [{"type":'ineq','fun':c}]
+    nsga_instance = continousBiObjective_NSGA(f1,
+                                              f2,
+                                              xmin,
+                                              xmax,
+                                              constraints=cons,
+                                              func1_criterion='min',
+                                              func2_criterion='min')
+                                              
+    xfront,f1front,f2front = nsga_instance.optimize(20,100,verbose=False)
+
+    plt.figure(1,figsize=(7,4))
+
+    plt.subplot(121)
+    plt.plot(x,f1(x),label='f1(x)',color='r')
+    plt.plot(x,f2(x),label='f2(x)',color='b')
+    plt.plot(x,c(x),label='Constraint',color='k',ls='--')
+    plt.plot(xfront,f1front,label='front f1',marker='o',ls='',markerfacecolor="None",markeredgecolor='r')
+    plt.plot(xfront,f2front,label='front f2',marker='o',ls='',markerfacecolor="None",markeredgecolor='b')
+    plt.grid(True)
+    plt.legend()
+    plt.xlabel("Variable x")
+    plt.ylabel("Function values")
+
+    feasible = c(x)>=0.0
+
+    plt.subplot(122)
+    plt.plot(f1(x)[feasible],f2(x)[feasible],label='feasible',marker='.',ls='',color='k')
+    plt.plot(f1(x)[~feasible],f2(x)[~feasible],label='not feasible',marker='x',ls='',color='grey')
+    plt.plot(f1front,f2front,label='Pareto front',marker='o',ls='',markerfacecolor="orange",markeredgecolor='k',alpha=0.9)
+    plt.grid(True)
+    plt.legend()
+    plt.xlabel("f1(x)")
+    plt.ylabel("f2(x)")
+
+    plt.tight_layout()
+
+    plt.savefig("html/nsga.png")
+    plt.show()
+
 
     
 

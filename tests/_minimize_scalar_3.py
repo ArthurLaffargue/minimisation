@@ -6,7 +6,7 @@ from scipy.special import j1
 plt.rc('font',family='Serif')
 
 sys.path.append("..")
-from _minimize_scalar import *
+from minimization import minimize_scalar
 
 # FONCTION ET MINIMISATION
 xmin,xmax = -3.5,2.0
@@ -18,9 +18,9 @@ x = np.linspace(xmin,xmax,250)
 y = f(x)
 
 start = time.time()
-dictgold = goldenSearch(f,xmin,xmax,returnDict=True)
+dictgold = minimize_scalar(f,xmin,xmax,returnDict=True,method='goldenSearch')
 inter = time.time()
-dictgrad = scalarGradient(f,xinit,xmin,xmax,returnDict=True)
+dictgrad = minimize_scalar(f,xmin,xmax,returnDict=True,method="scalarGradient",xinit=xinit)
 end = time.time()
 
 xgold = dictgold["x"]
