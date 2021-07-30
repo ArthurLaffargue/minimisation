@@ -11,29 +11,36 @@ class continousSingleObjectiveGA :
         """
         Instance de continousSingleObjectiveGA : 
         
-        Algorithme genetique d'optimisation de fonction mono-objectif à variables reelles
-        Recherche d'un optimum global de la fonction f sur les bornes xmin-xmax. 
+        Algorithme genetique d'optimisation de fonction mono-objectif à 
+        variables reelles. Recherche d'un optimum global de la fonction f sur
+        les bornes xmin-xmax. 
 
         Parameters : 
         
             - func (callable) : 
-                Fonction objectif a optimiser de la forme f(x) ou x est l'argument de la fonction de forme scalaire ou array et renvoie un scalaire ou array.
+                Fonction objectif a optimiser de la forme f(x) ou x est 
+                l'argument de la fonction de forme scalaire ou array et renvoie 
+                un scalaire ou array.
 
             - xmin (array like) : 
                 Borne inferieure des variables d'optimisation. 
 
             - xmax (array like) : 
-                Borne supérieure des variables d'optimisation. Doit être de même dimension que xmin. 
+                Borne supérieure des variables d'optimisation. Doit être de 
+                même dimension que xmin. 
 
             - constraints (List of dict) option : 
-                Definition des contraintes dans une liste de dictionnaires. Chaque dictionnaire contient les champs suivants 
+                Definition des contraintes dans une liste de dictionnaires. 
+                Chaque dictionnaire contient les champs suivants 
                     type : str
                         Contraintes de type egalite 'eq' ou inegalite 'ineq' ; 
                     fun : callable
                         La fonction contrainte de la meme forme que func ; 
 
             - preprocess_function (callable or None) option : 
-                Definition d'une fonction sans renvoie de valeur à executer avant chaque evaluation de la fonction objectif func ou des contraintes.
+                Definition d'une fonction sans renvoie de valeur à executer 
+                avant chaque evaluation de la fonction objectif func ou des 
+                contraintes.
         
 
 
@@ -106,11 +113,13 @@ class continousSingleObjectiveGA :
 
     def setPreSelectNumber(self,nbr_preselected=2):
         """
-        Change le nombre d'individus pre-selectionnes dans un mode de selection par tournois. 
+        Change le nombre d'individus pre-selectionnes dans un mode de selection 
+        par tournois. 
 
         Parameter : 
 
-            - nbr_preselected (int) option : nombre d'individus participants à chaque tournois. Superieur a 1.
+            - nbr_preselected (int) option : nombre d'individus participants à 
+              chaque tournois. Superieur a 1.
         """
         self.__nPreSelected = nbr_preselected
 
@@ -120,9 +129,11 @@ class continousSingleObjectiveGA :
 
         Parameters : 
 
-            - mutation_step (float) option : limite de deplacement par mutation. Doit etre compris entre 0 et 1.
+            - mutation_step (float) option : limite de deplacement par mutation. 
+              Doit etre compris entre 0 et 1.
 
-            - mutation_rate (float) option : probabilite de mutation. Doit etre compris entre 0 et 1.
+            - mutation_rate (float) option : probabilite de mutation. Doit etre 
+              compris entre 0 et 1.
         """
 
         self.__stepMut = mutation_rate
@@ -131,12 +142,14 @@ class continousSingleObjectiveGA :
 
     def setCrossFactor(self,crossover_factor=1.25):
         """
-        Change la limite de barycentre dans l'operateur de reproduction. Si egale a 1, les enfants seront strictement entre les parents. 
-        Si superieur a 1, les enfants peuvent etre a l'exterieur du segment parent. 
+        Change la limite de barycentre dans l'operateur de reproduction. Si 
+        egale a 1, les enfants seront strictement entre les parents. Si 
+        superieur a 1, les enfants peuvent etre a l'exterieur du segment parent. 
 
         Parameter : 
 
-            - crossover_factor (float) option : facteur de melange des individus parents ; 
+            - crossover_factor (float) option : facteur de melange des 
+              individus parents ; 
         """
         self.__crossFactor = crossover_factor
 
@@ -146,7 +159,9 @@ class continousSingleObjectiveGA :
 
         Parameter : 
 
-            - sharingDict (float or None) option : Rayon de diversite de solution. Si None, le parametre est initialise a 1/(taille population).
+            - sharingDict (float or None) option : Rayon de diversite de 
+              solution. Si None, le parametre est initialise a 
+              1/(taille population).
         """
         self.__sharingDist = sharingDist
 
@@ -158,9 +173,11 @@ class continousSingleObjectiveGA :
 
             - method (str) option : Definition de la methode de selection. 
                 Si method = 'tournament' : selection par tournois. 
-                Si method = 'SRWRS' : selection par "Stochastic remainder without replacement selection" [Golberg]
+                Si method = 'SRWRS' : selection par "Stochastic remainder 
+                without replacement selection" [Golberg]
         
-        [Golberg]    D.E Goldberg. Genetic Algorithms in Search, Optimization and Machine Learning. Reading MA Addison Wesley, 1989.
+        [Golberg]    D.E Goldberg. Genetic Algorithms in Search, 
+        Optimization and Machine Learning. Reading MA Addison Wesley, 1989.
         """
         if method == "SRWRS" :
             self.__selection_function = self.__selection_SRWRS
@@ -173,9 +190,12 @@ class continousSingleObjectiveGA :
 
         Parameter : 
 
-            method (str) option : Definition de la methode de gestion des contraintes. 
-                Si method = 'penality' utilisation d'une penalisation quadratique. 
-                Si method = 'feasibility' les solutions non satisfaisante sont rejetees.
+            method (str) option : Definition de la methode de gestion des 
+            contraintes. 
+                Si method = 'penality' utilisation d'une penalisation 
+                quadratique. 
+                Si method = 'feasibility' les solutions non satisfaisante 
+                sont rejetees.
         """
         if method == "feasibility" or method == "penality" :
             self.__constraintMethod = method
@@ -186,14 +206,17 @@ class continousSingleObjectiveGA :
 
         Parameters : 
 
-            - contraintAbsTol (float) option : tolerance des contraintes d'egalite. Si la contrainte i ||ci(xk)|| <= contraintAbsTol, la solution est viable. 
+            - contraintAbsTol (float) option : tolerance des contraintes 
+              d'egalite. Si la contrainte i ||ci(xk)|| <= contraintAbsTol, la solution est viable. 
 
-            - penalityFactor (float) option : facteur de penalisation. La nouvelle fonction objectif est evaluee par la forme suivante :
-                                                    penal_objective_func = objective_func + sum(ci**2 if ci not feasible)*penalityFactor
-                                                    objectif_penalise = objectif + somme( ci**2 si ci non faisable)*facteur_penalite
+            - penalityFactor (float) option : facteur de penalisation. 
+              La nouvelle fonction objectif est evaluee par la forme suivante :
+              penal_objective_func = objective_func +
+                                sum(ci**2 if ci not feasible)*penalityFactor
                                             
-            - penalityGrowth (float) option : pour chaque iteration de l'algorithme le facteur de penalite peut croitre d'un facteur penalityGrowth
-                                                    penalityFactor_(k+1) = penalityFactor_(k)*penalityGrowth
+            - penalityGrowth (float) option : pour chaque iteration de 
+              l'algorithme le facteur de penalite peut croitre d'un facteur 
+              penalityGrowth
 
         """
         self.__constraintAbsTol = constraintAbsTol
@@ -203,9 +226,11 @@ class continousSingleObjectiveGA :
 
     def setElitisme(self,elitisme=True):
         """
-        Booleen d'activation d'un operateur d'elitsime herite de la methode NSGA-II. 
-        L'elitisme melange les populations parents et enfants pour en extraire les meilleurs individus. 
-        Si cette option est desactivee, la methode de contrainte par faisabilite est impossible. L'algorithme utilisera une penalite.
+        Booleen d'activation d'un operateur d'elitsime herite de la methode 
+        NSGA-II. L'elitisme melange les populations parents et enfants pour en 
+        extraire les meilleurs individus. Si cette option est desactivee, la 
+        methode de contrainte par faisabilite est impossible. L'algorithme 
+        utilisera une penalite.
 
         Parameter : 
 
@@ -221,7 +246,9 @@ class continousSingleObjectiveGA :
         Parameter : 
 
             - func (callable) : 
-                Fonction objectif a optimiser de la forme f(x) ou x est l'argument de la fonction de forme scalaire ou array et renvoie un scalaire ou array.
+                Fonction objectif a optimiser de la forme f(x) ou x est 
+                l'argument de la fonction de forme scalaire ou array et 
+                renvoie un scalaire ou array.
         """
         self.__function = func
 
@@ -232,9 +259,10 @@ class continousSingleObjectiveGA :
         Parameter : 
 
             - constraints (List of dict) option : 
-                    Definition des contraintes dans une liste de dictionnaires. Chaque dictionnaire contient les champs suivants 
+                    Definition des contraintes dans une liste de dictionnaires. 
+                    Chaque dictionnaire contient les champs suivants 
                         type : str
-                            Contraintes de type egalite 'eq' ou inegalite 'ineq' ; 
+                            Contraintes de type egalite 'eq' ou inegalite 'ineq'; 
                         fun : callable
                             La fonction contrainte de la meme forme que func ; 
         """
@@ -248,7 +276,9 @@ class continousSingleObjectiveGA :
         Parameter
 
             - preprocess_function (callable or None) option : 
-                Definition d'une fonction sans renvoie de valeur à executer avant chaque evaluation de la fonction objectif func ou des contraintes.
+                Definition d'une fonction sans renvoie de valeur à executer 
+                avant chaque evaluation de la fonction objectif func ou des 
+                contraintes.
         """
         self.__preProcess = preprocess_function
 
@@ -260,8 +290,10 @@ class continousSingleObjectiveGA :
         Parameter : 
 
             - xstart (array(npop,ndof)) : 
-                xstart est la solution initiale. Ses dimensions doivent etre de (npop,ndof). 
-                npop la taille de la population et ndof le nombre de variable (degrees of freedom).
+                xstart est la solution initiale. Ses dimensions doivent etre de
+                (npop,ndof). 
+                npop la taille de la population et ndof le nombre de variable
+                (degrees of freedom).
         """
 
         x = np.array(xstart)
@@ -628,36 +660,47 @@ class continousSingleObjectiveGA :
         Parameters : 
 
             - npop (int) : 
-                Taille de la population. Si npop est impair, l'algorithm l'augmente de 1. 
-                Usuellement pour un probleme sans contrainte une population efficace est situee entre 5 et 20 fois le nombre de variable.
-                Si les contraintes sont fortes, il sera utile d'augmenter la population.
-                Ce parametre n'est pas pris en compte si une population initiale a ete definie.
+                Taille de la population. Si npop est impair, l'algorithm 
+                l'augmente de 1. Usuellement pour un probleme sans contrainte 
+                une population efficace est situee entre 5 et 20 fois le nombre 
+                de variable. Si les contraintes sont fortes, il sera utile 
+                d'augmenter la population. Ce parametre n'est pas pris en compte
+                si une population initiale a ete definie.
 
             - ngen (int) : 
-                Nombre de generation. Usuellement une bonne pratique est de prendre 2 à 10 fois la taille de la population. 
+                Nombre de generation. Usuellement une bonne pratique est de 
+                prendre 2 à 10 fois la taille de la population. 
 
             - verbose (bool) option : 
-                Affiche l'etat de la recherche pour chaque iteration. Peut ralentir l'execution.
+                Affiche l'etat de la recherche pour chaque iteration. Peut 
+                ralentir l'execution.
 
             - returnDict (bool) option : 
-                Si l'option est True alors l'algorithme retourne un dictionnaire. 
+                Si l'option est True alors l'algorithme retourne un 
+                dictionnaire. 
             
         Returns : 
 
             Si (returnDict = False) : 
-                tuple : xsolution, objective_solution (array(ndof), array(1)) ou (None, None)
-                    - xsolution est la meilleure solution x historisee. Sa dimension correspond a ndof, la taille du probleme initial.
-                    - objective_solution est la fonction objectif evaluee à xsolution. 
-                    Si la solution n'a pas convergee et les contraintes jamais validee, l'algorithme return (None, None)
+                tuple : xsolution, objective_solution (array(ndof), array(1)) 
+                            ou (None, None)
+                    - xsolution est la meilleure solution x historisee. 
+                      Sa dimension correspond a ndof, la taille du probleme 
+                      initial.
+                    - objective_solution est la fonction objectif evaluee à 
+                      xsolution. 
+                    Si la solution n'a pas convergee et les contraintes jamais 
+                    validee, l'algorithme retourne (None, None)
             
             Si (returnDict = False) : 
                 dict :
                     "method" (str) : algorithm utilise.
                     "optimization" (str) : minimisation ou maximisation.
-                    "success" (bool) : True si l'algorithm a converge, False sinon. 
-                    "x" (array or None) : meilleure solution ou None si success = False.
-                    "f" (array or None) : meilleure objectif ou None si success = False. 
-                    "constrViolation" (List of float) : violation des contraintes. Liste vide si aucune contrainte.
+                    "success" (bool) : True si l'algorithm a converge.
+                    "x" (array or None) : Solution ou None si success = False.
+                    "f" (array or None) : Minimum ou None si success = False. 
+                    "constrViolation" (List of float) : violation des 
+                        contraintes. Liste vide si aucune contrainte.
         """
         self.__sign_factor = -1.0
         self.__runOptimization(npop, ngen, verbose=verbose)
@@ -676,41 +719,52 @@ class continousSingleObjectiveGA :
     
     def maximize(self,npop,ngen,verbose=True,returnDict=False):
         """
-        Algorithme de maximisation de la fonction objectif sous contrainte. 
-        
+        Algorithme de maximisation de la fonction objectif sous contrainte.
+
         Parameters : 
 
             - npop (int) : 
-                Taille de la population. Si npop est impair, l'algorithm l'augmente de 1. 
-                Usuellement pour un probleme sans contrainte une population efficace est situee entre 5 et 20 fois le nombre de variable.
-                Si les contraintes sont fortes, il sera utile d'augmenter la population.
-                Ce parametre n'est pas pris en compte si une population initiale a ete definie.
+                Taille de la population. Si npop est impair, l'algorithm 
+                l'augmente de 1. Usuellement pour un probleme sans contrainte 
+                une population efficace est situee entre 5 et 20 fois le nombre 
+                de variable. Si les contraintes sont fortes, il sera utile 
+                d'augmenter la population. Ce parametre n'est pas pris en compte
+                si une population initiale a ete definie.
 
             - ngen (int) : 
-                Nombre de generation. Usuellement une bonne pratique est de prendre 2 à 10 fois la taille de la population. 
+                Nombre de generation. Usuellement une bonne pratique est de 
+                prendre 2 à 10 fois la taille de la population. 
 
             - verbose (bool) option : 
-                Affiche l'etat de la recherche pour chaque iteration. Peut ralentir l'execution.
+                Affiche l'etat de la recherche pour chaque iteration. Peut 
+                ralentir l'execution.
 
             - returnDict (bool) option : 
-                Si l'option est True alors l'algorithme retourne un dictionnaire. 
+                Si l'option est True alors l'algorithme retourne un 
+                dictionnaire. 
             
         Returns : 
-        
+
             Si (returnDict = False) : 
-                tuple : xsolution, objective_solution (array(ndof), array(1)) ou (None, None)
-                    - xsolution est la meilleure solution x historisee. Sa dimension correspond a ndof, la taille du probleme initial.
-                    - objective_solution est la fonction objectif evaluee à xsolution. 
-                    Si la solution n'a pas convergee et les contraintes jamais validee, l'algorithme return (None, None)
+                tuple : xsolution, objective_solution (array(ndof), array(1)) 
+                            ou (None, None)
+                    - xsolution est la meilleure solution x historisee. 
+                      Sa dimension correspond a ndof, la taille du probleme 
+                      initial.
+                    - objective_solution est la fonction objectif evaluee à 
+                      xsolution. 
+                    Si la solution n'a pas convergee et les contraintes jamais 
+                    validee, l'algorithme retourne (None, None)
             
             Si (returnDict = False) : 
                 dict :
                     "method" (str) : algorithm utilise.
                     "optimization" (str) : minimisation ou maximisation.
-                    "success" (bool) : True si l'algorithm a converge, False sinon. 
-                    "x" (array or None) : meilleure solution ou None si success = False.
-                    "f" (array or None) : meilleure objectif ou None si success = False. 
-                    "constrViolation" (List of float) : violation des contraintes. Liste vide si aucune contrainte.
+                    "success" (bool) : True si l'algorithm a converge.
+                    "x" (array or None) : Solution ou None si success = False.
+                    "f" (array or None) : Maximum ou None si success = False. 
+                    "constrViolation" (List of float) : violation des 
+                        contraintes. Liste vide si aucune contrainte.
         """
         self.__sign_factor = 1.0
         self.__runOptimization(npop, ngen, verbose=verbose)
@@ -745,37 +799,47 @@ class continousBiObjective_NSGA():
         continousBiObjective_NSGA : 
         
         Algorithme genetique d'optimisation bi-objectif à variables reelles. 
-        Recherche du front de Pareto de fonctions scalaires à variables continues sur l'intervalle [xmin;xmax].
+        Recherche du front de Pareto de fonctions scalaires à variables 
+        continues sur l'intervalle [xmin;xmax].
 
         ---------------------------------------------------------------------------------------------------------
         Source : 
 
         A Fast and Elitist Multiobjective Genetic Algorithm : NSGA-II
-        Kalyanmoy Deb, Associate Member, IEEE, Amrit Pratap, Sameer Agarwal, and T. Meyarivan
+        Kalyanmoy Deb, Associate Member, IEEE, Amrit Pratap, Sameer Agarwal, 
+        and T. Meyarivan
 
         Parameters : 
 
             - func1 (callable) : 
-                Fonction objectif a optimiser de la forme f(x) ou x est l'argument de la fonction de forme scalaire ou array et renvoie un scalaire ou array.
+                Fonction objectif a optimiser de la forme f(x) ou x est 
+                l'argument de la fonction de forme scalaire ou array et 
+                renvoie un scalaire ou array.
 
             - func2 (callable) : 
-                Fonction objectif a optimiser de la forme f(x) ou x est l'argument de la fonction de forme scalaire ou array et renvoie un scalaire ou array.
+                Fonction objectif a optimiser de la forme f(x) ou x est 
+                l'argument de la fonction de forme scalaire ou array et 
+                renvoie un scalaire ou array.
 
             - xmin (array like) : 
                 Borne inferieure des variables d'optimisation. 
 
             - xmax (array like) : 
-                Borne supérieure des variables d'optimisation. Doit être de même dimension que xmin. 
+                Borne supérieure des variables d'optimisation. Doit être de 
+                même dimension que xmin. 
 
             - constraints (List of dict) option : 
-                Definition des contraintes dans une liste de dictionnaires. Chaque dictionnaire contient les champs suivants 
+                Definition des contraintes dans une liste de dictionnaires. 
+                Chaque dictionnaire contient les champs suivants 
                     type : str
                         Contraintes de type egalite 'eq' ou inegalite 'ineq' ; 
                     fun : callable
                         La fonction contrainte de la meme forme que func ; 
 
             - preprocess_function (callable or None) option : 
-                Definition d'une fonction sans renvoie de valeur à executer avant chaque evaluation de la fonction objectif func ou des contraintes.
+                Definition d'une fonction sans renvoie de valeur à executer 
+                avant chaque evaluation de la fonction objectif func ou 
+                des contraintes.
 
             - func1_criterion (string) option : 
                 Definition du critere du premier objectif. 
@@ -809,7 +873,7 @@ class continousBiObjective_NSGA():
                                                     func1_criterion='min',
                                                     func2_criterion='min')
                                                     
-            xfront,f1front,f2front = nsga_instance.optimize(20,100,verbose=False)
+            xfront,f1front,f2front = nsga_instance.optimize(20,100)
         """
         self.__xmin = np.minimum(xmin,xmax)
         self.__xmax = np.maximum(xmin,xmax)
@@ -858,11 +922,13 @@ class continousBiObjective_NSGA():
 
     def setPreSelectNumber(self,nbr_preselected=2):
         """
-        Change le nombre d'individus pre-selectionnes dans un mode de selection par tournois. 
+        Change le nombre d'individus pre-selectionnes dans un mode de selection 
+        par tournois. 
 
         Parameter : 
 
-            - nbr_preselected (int) option : nombre d'individus participants à chaque tournois. Superieur a 1.
+            - nbr_preselected (int) option : nombre d'individus participants 
+              à chaque tournois. Superieur a 1.
         """
         self.__nPreSelected = nbr_preselected
 
@@ -872,9 +938,11 @@ class continousBiObjective_NSGA():
 
         Parameters : 
 
-            - mutation_step (float) option : limite de deplacement par mutation. Doit etre compris entre 0 et 1.
+            - mutation_step (float) option : limite de deplacement par mutation. 
+              Doit etre compris entre 0 et 1.
 
-            - mutation_rate (float) option : probabilite de mutation. Doit etre compris entre 0 et 1.
+            - mutation_rate (float) option : probabilite de mutation. 
+              Doit etre compris entre 0 et 1.
         """
 
         self.__stepMut = mutation_rate
@@ -882,12 +950,15 @@ class continousBiObjective_NSGA():
 
     def setCrossFactor(self,crossover_factor=1.25):
         """
-        Change la limite de barycentre dans l'operateur de reproduction. Si egale a 1, les enfants seront strictement entre les parents. 
-        Si superieur a 1, les enfants peuvent etre a l'exterieur du segment parent. 
+        Change la limite de barycentre dans l'operateur de reproduction. 
+        Si egale a 1, les enfants seront strictement entre les parents. 
+        Si superieur a 1, les enfants peuvent etre a l'exterieur du segment 
+        parent. 
 
         Parameter : 
 
-            - crossover_factor (float) option : facteur de melange des individus parents ; 
+            - crossover_factor (float) option : facteur de melange des 
+              individus parents ; 
         """
         self.__crossFactor = crossover_factor
 
@@ -897,7 +968,9 @@ class continousBiObjective_NSGA():
 
         Parameter : 
 
-            - sharingDict (float or None) option : Rayon de diversite de solution. Si None, le parametre est initialise a 1/(taille population).
+            - sharingDict (float or None) option : Rayon de diversite de 
+              solution. Si None, le parametre est initialise a 
+              1/(taille population).
         """
         self.__sharingDist = sharingDist
 
@@ -907,9 +980,12 @@ class continousBiObjective_NSGA():
 
         Parameter : 
 
-            method (str) option : Definition de la methode de gestion des contraintes. 
-                Si method = 'penality' utilisation d'une penalisation quadratique. 
-                Si method = 'feasibility' les solutions non satisfaisante sont rejetees.
+            method (str) option : Definition de la methode de gestion des 
+            contraintes. 
+                Si method = 'penality' utilisation d'une penalisation 
+                quadratique. 
+                Si method = 'feasibility' les solutions non satisfaisante 
+                sont rejetees.
         """
         if method == "feasibility" or method == "penality" :
             self.__constraintMethod = method
@@ -920,14 +996,19 @@ class continousBiObjective_NSGA():
 
         Parameters : 
 
-            - contraintAbsTol (float) option : tolerance des contraintes d'egalite. Si la contrainte i ||ci(xk)|| <= contraintAbsTol, la solution est viable. 
+            - contraintAbsTol (float) option : tolerance des contraintes 
+              d'egalite. Si la contrainte i ||ci(xk)|| <= contraintAbsTol, 
+              la solution est viable. 
 
-            - penalityFactor (float) option : facteur de penalisation. La nouvelle fonction objectif est evaluee par la forme suivante :
-                                                    penal_objective_func = objective_func + sum(ci**2 if ci not feasible)*penalityFactor
-                                                    objectif_penalise = objectif + somme( ci**2 si ci non faisable)*facteur_penalite
+            - penalityFactor (float) option : facteur de penalisation. 
+              La nouvelle fonction objectif est evaluee par la forme suivante :
+                penal_objective_func = objective_func + 
+                                sum(ci**2 if ci not feasible)*penalityFactor
                                             
-            - penalityGrowth (float) option : pour chaque iteration de l'algorithme le facteur de penalite peut croitre d'un facteur penalityGrowth
-                                                    penalityFactor_(k+1) = penalityFactor_(k)*penalityGrowth
+            - penalityGrowth (float) option : pour chaque iteration de 
+              l'algorithme le facteur de penalite peut croitre d'un facteur 
+            penalityGrowth
+                    penalityFactor_(k+1) = penalityFactor_(k)*penalityGrowth
 
         """
         self.__constraintAbsTol = constraintAbsTol
@@ -942,9 +1023,11 @@ class continousBiObjective_NSGA():
         Parameter : 
 
             - constraints (List of dict) option : 
-                    Definition des contraintes dans une liste de dictionnaires. Chaque dictionnaire contient les champs suivants 
+                    Definition des contraintes dans une liste de dictionnaires. 
+                    Chaque dictionnaire contient les champs suivants 
                         type : str
-                            Contraintes de type egalite 'eq' ou inegalite 'ineq' ; 
+                            Contraintes de type egalite 'eq' 
+                            ou inegalite 'ineq' ; 
                         fun : callable
                             La fonction contrainte de la meme forme que func ; 
         """
@@ -957,7 +1040,9 @@ class continousBiObjective_NSGA():
         Parameter :
 
             - preprocess_function (callable or None) option : 
-                Definition d'une fonction sans renvoie de valeur à executer avant chaque evaluation de la fonction objectif func ou des contraintes.
+                Definition d'une fonction sans renvoie de valeur à executer 
+                avant chaque evaluation de la fonction objectif func 
+                ou des contraintes.
         """
         self.__preProcess = preprocess_function
 
@@ -968,8 +1053,10 @@ class continousBiObjective_NSGA():
         Parameter : 
 
             - xstart (array(npop,ndof)) : 
-                xstart est la solution initiale. Ses dimensions doivent etre de (npop,ndof). 
-                npop la taille de la population et ndof le nombre de variable (degrees of freedom).
+                xstart est la solution initiale. Ses dimensions doivent etre 
+                de (npop,ndof). 
+                npop la taille de la population et ndof le nombre de variable 
+                (degrees of freedom).
         """
 
         x = np.array(xstart)
@@ -1002,10 +1089,14 @@ class continousBiObjective_NSGA():
         Parameters : 
 
             - func1 (callable) : 
-                Fonction objectif a optimiser de la forme f(x) ou x est l'argument de la fonction de forme scalaire ou array et renvoie un scalaire ou array.
+                Fonction objectif a optimiser de la forme f(x) ou x est 
+                l'argument de la fonction de forme scalaire ou array et 
+                renvoie un scalaire ou array.
 
             - func2 (callable) : 
-                Fonction objectif a optimiser de la forme f(x) ou x est l'argument de la fonction de forme scalaire ou array et renvoie un scalaire ou array.
+                Fonction objectif a optimiser de la forme f(x) ou x est 
+                l'argument de la fonction de forme scalaire ou array et 
+                renvoie un scalaire ou array.
 
 
             - func1_criterion (string) option : 
@@ -1473,36 +1564,48 @@ class continousBiObjective_NSGA():
         Parameters : 
 
             - npop (int) : 
-                Taille de la population. Si npop est impair, l'algorithm l'augmente de 1. 
-                Usuellement pour un probleme sans contrainte une population efficace est situee entre 5 et 20 fois le nombre de variable.
-                Si les contraintes sont fortes, il sera utile d'augmenter la population.
-                Ce parametre n'est pas pris en compte si une population initiale a ete definie.
+                Taille de la population. Si npop est impair, l'algorithm 
+                l'augmente de 1. Usuellement pour un probleme sans contrainte 
+                une population efficace est situee entre 5 et 20 fois le 
+                nombre de variable. Si les contraintes sont fortes, il sera 
+                utile d'augmenter la population. Ce parametre n'est pas pris 
+                en compte si une population initiale a ete definie.
 
             - ngen (int) : 
-                Nombre de generation. Usuellement une bonne pratique est de prendre 2 à 10 fois la taille de la population. 
+                Nombre de generation. Usuellement une bonne pratique est de 
+                prendre 2 à 10 fois la taille de la population. 
 
             - nfront (int or None) option : 
-                Nombre de point maximum dans le front de Pareto. Si None, alors nfront = 3*npop
+                Nombre de point maximum dans le front de Pareto. Si None, 
+                alors nfront = 3*npop
 
             - verbose (bool) option : 
-                Affiche l'etat de la recherche pour chaque iteration. Peut ralentir l'execution.
+                Affiche l'etat de la recherche pour chaque iteration. 
+                Peut ralentir l'execution.
 
             - returnDict (bool) option : 
-                Si l'option est True alors l'algorithme retourne un dictionnaire. 
+                Si l'option est True alors l'algorithme retourne un 
+                dictionnaire. 
             
         Returns : 
 
             Si (returnDict = False) : 
-                tuple : xsolutions, objective1_solutions, objective2_solutions (array(ndof,nfront), array(nfront), array(nfront))
-                    - xsolutions sont les solutions composants le front de Pareto.
-                    - objective1_solutions sont les points de la fonction 1 dans le front de Pareto. 
-                    - objective2_solutions sont les points de la fonction 2 dans le front de Pareto.
+                tuple : (  xsolutions, objective1_solutions, 
+                            objective2_solutions )
+                        (array(ndof,nfront), array(nfront), array(nfront))
+                        
+                    - xsolutions sont les solutions composants le front 
+                      de Pareto.
+                    - objective1_solutions sont les points de la fonction 1 
+                      dans le front de Pareto. 
+                    - objective2_solutions sont les points de la fonction 2 
+                      dans le front de Pareto.
             
             Si (returnDict = True) : 
                 dict :
                     "method" (str) : algorithm utilise.
                     "optimization" (str) : minimisation ou maximisation.
-                    "success" (bool) : True si l'algorithm a converge, False sinon. 
+                    "success" (bool) : True si l'algorithm a converge.
                     "x" (array or None) : solutions du front de Pareto.
                     "f1" (array or None) : front de Pareto f1.
                     "f2" (array or None) : front de Pareto f2.
@@ -1582,7 +1685,6 @@ if __name__ == '__main__' :
 
     plt.tight_layout()
 
-    plt.savefig("html/nsga.png")
     plt.show()
 
 

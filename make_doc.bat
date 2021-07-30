@@ -1,1 +1,1 @@
-pdoc --html --output-dir documentation --force --config show_source_code=False minimization.py
+pdoc3 --html --output-dir documentation --force --config show_source_code=False minimization.py

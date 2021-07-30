@@ -49,53 +49,68 @@ def minimize_scalar(f,xmin,xmax,xinit=None,
 
         - xmax (float) : borne supérieure du problème de minimisation. 
 
-        - xinit (float or None) option : point initiale uniquement pour les méthodes [scalarGradient], si None xinit = (xmin+xmax)/2. 
+        - xinit (float or None) option : point initiale uniquement pour les
+            méthodes [scalarGradient], si None xinit = (xmin+xmax)/2. 
 
         - method (str) option : méthode de minimisation. 
-            *"goldenSearch" : méthode dichotomique basée sur le nombre d'or sans évaluation du gradient. 
-            *"scalarGradient" : méthode du gradient appliqué en dimension scalaire. Gradient approché ou exacte. 
+            *"goldenSearch" : méthode dichotomique basée sur le nombre d'or sans
+                évaluation du gradient. 
+            *"scalarGradient" : méthode du gradient appliqué en dimension 
+                scalaire. Gradient approché ou exacte. 
         
-        - tol (float) option : tolérance sur critère d'arrêt. L'agorithme s'arrête si (residu < tol)AND(gradient<gtol).
+        - tol (float) option : tolérance sur critère d'arrêt. L'agorithme 
+            s'arrête si (residu < tol)AND(gradient<gtol).
 
         - gtol (float) option : tolérance sur la valeur du gradient. 
 
         - maxIter (int) option : nombre limite d'itérations. 
 
-        - gf (callable or None) : fonction de la dérivée. Fonction scalaire réelle. Si 'None' une approximation est utilisée. 
+        - gf (callable or None) : fonction de la dérivée. Fonction scalaire 
+            réelle. Si 'None' une approximation est utilisée. 
 
         - constraints (List of dict) option : 
-                Definition des contraintes dans une liste de dictionnaires. Chaque dictionnaire contient les champs suivants 
+                Definition des contraintes dans une liste de dictionnaires. 
+                    Chaque dictionnaire contient les champs suivants 
+                    
                     type : str
                         Contraintes de type egalite 'eq' ou inegalite 'ineq' ; 
                     fun : callable
                         La fonction contrainte de la meme forme que func ; 
                     jac : callable 
-                        Dérivée de la fonction contrainte de la même forme que gf ; 
+                        Dérivée de la fonction contrainte de la même forme
+                            que gf ; 
         
-        - penalityFactor (float) option : facteur de penalisation. La nouvelle fonction objectif est evaluee par la forme suivante :
-                                                    penal_objective_func = objective_func + sum(ci**2 if ci not feasible)*penalityFactor
-                                                    objectif_penalise = objectif + somme( ci**2 si ci non faisable)*facteur_penalite
+        - penalityFactor (float) option : facteur de penalisation. 
+            La nouvelle fonction objectif est evaluee par la forme suivante :
+            penal_objective = objective_func +
+                              sum(ci**2 if ci not feasible)*penalityFactor
         
         - returnDict (bool) option : 
                 Si l'option est True alors l'algorithme retourne un dictionnaire. 
 
         - storeIterValues (bool) option :
-                L'évolution des variables durant la résolution est stockée dans un numpy array retourné dans le dictionnaire si returnDict = True ; 
+                L'évolution des variables durant la résolution est stockée dans 
+                un numpy array retourné dans le dictionnaire si 
+                returnDict = True ; 
         
         - deriveMethod (string) option : méthode d'approximation de la derivée. 
                 *"finite-difference" : df = ( f(x+dh)-f(x) )/dh
                 *"complex" : df = imag(f(x+1j*dh)/dh))
         
-        - dh (float) option : pas d'approximation de la dérivée. dh = max(abs(x)*dh,dh)
+        - dh (float) option : pas d'approximation de la dérivée.
 
-        - stop_tolRatio (float) option : tolerance minimale pour forcer l'arrêt sur le résidu si le gradient n'atteint pas la tolerance gtol. 
-                La tolerance minimale est calculée par mintol = tol*stop_tolRatio.
+        - stop_tolRatio (float) option : tolerance minimale pour forcer l'arrêt 
+                sur le résidu si le gradient n'atteint pas la tolerance gtol. 
+                mintol = tol*stop_tolRatio.
         
-        - stop_gtolRatio (float) option : tolerance minimale pour forcer l'arrêt sur le gradient si le résidu n'atteint pas la tolerance tol. 
-                La tolerance minimale est calculée par mingtol = gtol*stop_gtolRatio.
+        - stop_gtolRatio (float) option : tolerance minimale pour forcer l'arrêt 
+                sur le gradient si le résidu n'atteint pas la tolerance tol. 
+                mingtol = gtol*stop_gtolRatio.
 
         - precallfunc (callable or None) option : 
-                Definition d'une fonction sans renvoie de valeur à executer avant chaque evaluation de la fonction objectif, des gradients ou des contraintes.
+                Definition d'une fonction sans renvoie de valeur à executer 
+                avant chaque evaluation de la fonction objectif, des gradients
+                 ou des contraintes.
 
     Returns : 
 
@@ -111,7 +126,8 @@ def minimize_scalar(f,xmin,xmax,xinit=None,
                 "residual": résidu.
                 "gradResidual": résidu du gradient.
                 "gradNorm": norme du gradient.
-                "constrViolation": list des violations des contraintes. Vide si pas de contrainte.
+                "constrViolation": list des violations des contraintes. 
+                                   Vide si pas de contrainte.
                 "iterations": nombre d'itérations.
                 "functionCalls": nombre d'appels de la fonction.
                 "gradientCalls": nombre d'appels du gradient. 
@@ -134,8 +150,14 @@ def minimize_scalar(f,xmin,xmax,xinit=None,
         x = np.linspace(xmin,xmax,250)
         y = f(x)
 
-        dictgold = minimize_scalar(f,xmin,xmax,returnDict=True,method="goldenSearch")
-        dictgrad = minimize_scalar(f,xmin,xmax,xinit=xinit,returnDict=True,gf=df,method="scalarGradient")
+        dictgold = minimize_scalar(f,xmin,xmax,returnDict=True,
+                                    method="goldenSearch")
+                                    
+        dictgrad = minimize_scalar(f,xmin,xmax,
+                                xinit=xinit,
+                                returnDict=True,
+                                gf=df,
+                                method="scalarGradient")
 
         Outputs : 
             #Solution goldenSearch
