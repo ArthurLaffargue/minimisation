@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize,dual_annealing
 plt.rc('font',family='Serif')
 ## Fonction objectif
-f0 = lambda x : (-(x[1] + 47) * np.sin(np.sqrt(abs(x[0]/2 + (x[1]  + 47))))
-                -x[0] * np.sin(np.sqrt(abs(x[0] - (x[1]  + 47)))))
+f0 = lambda x : -20*np.exp(-0.2*np.sqrt(0.5*(x[0]**2+x[1]**2))) - \
+                np.exp(0.5*np.cos(2*np.pi*x[0])+0.5*np.cos(2*np.pi*x[1]))
 
-xmin = [-75,-75]
-xmax = [75,75]
+xmin = [-4,-4]
+xmax = [4,4]
 
 ## contraintes 
 fc0= lambda x : -(0.001*x**3-x)
@@ -38,11 +38,13 @@ ngen = (maxIter+1)//npop
 
 ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,constraints=cons)
 
+xopt = None
+yopt = None
 for k in range(nloop):
     print("LOOP : ",k)
     print("")
     #genetic algorithm 
-    ga_instance.minimize(npop,ngen,verbose=False)
+    Xag,Yag = ga_instance.minimize(npop,ngen,verbose=False)
     fitness_ga = ga_instance.getStatOptimisation()
 
     ga_convergence.append(fitness_ga)
@@ -50,16 +52,25 @@ for k in range(nloop):
     #simulated annealing
     mindict_sa = minimize_simulatedAnnealing(f0,xmin,xmax,maxIter=maxIter,constraints=cons,returnDict=True,storeIterValues=True)
     sa_convergence.append(mindict_sa["fHistory"])
+    Ysa = mindict_sa["f"]
+    Xsa = mindict_sa["x"]
+
+    if Yag < Ysa : 
+        if (yopt is None) or yopt> Yag : 
+            xopt = Xag[:]
+    else : 
+        if (yopt is None) or yopt> Ysa : 
+            xopt = Xsa[:]
 
 # Optimisation locale
 bounds = [(xi,xj) for xi,xj in zip(xmin,xmax)]
 startX = np.mean(bounds,axis=1)
-res = minimize(f0,mindict_sa["x"],bounds=bounds)
+res = minimize(f0,xopt,bounds=bounds)
 fscipy = res.fun
 
 
-ga_convergence = np.log10( (np.array(ga_convergence).T - fscipy)/abs(fscipy) )
-sa_convergence = np.log10( (np.array(sa_convergence).T - fscipy)/abs(fscipy) )
+ga_convergence = (np.array(ga_convergence).T - fscipy)/abs(fscipy)
+sa_convergence = (np.array(sa_convergence).T - fscipy)/abs(fscipy)
 
 
 plt.figure(figsize=(8,4))
@@ -92,7 +103,7 @@ plt.grid(True)
 # plt.ylim(None,1)
 plt.xlabel("Nombre de générations")
 plt.ylabel("Fonction objectif")
-# plt.yscale('log')
+plt.yscale('log')
 plt.title("Convergence de la solution")
 plt.legend([line_ga,
             line_sa,

@@ -770,7 +770,7 @@ class continousSingleObjectiveGA :
         self.__lastPop = None
         last_improvement = 0
 
-        self.__statOptimisation  = np.zeros(ngen)
+        self.__statOptimisation  = np.full(ngen,None)
         objective = np.zeros(npop)
 
 
