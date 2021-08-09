@@ -91,7 +91,7 @@ class continousSingleObjectiveGA :
 
         #Mutation
         self.__rateMut = 0.10
-        self.__mutationMethod = "uniform" #"normal" #"polynomial"
+        self.__mutationMethod = "normal" #"normal" #"polynomial" "uniform"
         self.__mutationFunction = self.__normalMutation
         #Mutation uniforme ou normale
         self.__stepMut = 0.10
