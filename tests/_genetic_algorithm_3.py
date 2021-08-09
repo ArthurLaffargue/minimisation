@@ -17,7 +17,7 @@ sys.path.append("..")
 from _genetic_algorithms import continousSingleObjectiveGA
 
 npop = 40
-ngen = 100
+ngen = 50
 ga_instance = continousSingleObjectiveGA(f0,xmin,xmax)
 Xag,Yag = ga_instance.minimize(npop,ngen,verbose=False)
 fitnessArray = ga_instance.getStatOptimisation()
@@ -66,11 +66,15 @@ plt.legend(fontsize=12)
 
 
 
-figFitness = plt.figure('Fitness')
-plt.plot(list(range(len(fitnessArray))),fitnessArray,label='fmin')
-plt.xscale('log')
+plt.figure(figsize=(8,4))
+plt.plot(np.array(list(range(ngen)))*npop,fitnessArray,label='fmin',marker='o',ls='--',markerfacecolor="orange",alpha=0.5)
 plt.grid(True)
-plt.legend()
+plt.xlabel("Nombre de générations")
+plt.ylabel("Fonction objectif")
+plt.title("Convergence de la solution")
+plt.legend(loc=0)
+plt.tight_layout()
+plt.savefig("convergence.svg",dpi=300)
 
 
 
@@ -79,11 +83,11 @@ ax3D = fig3D.gca(projection='3d')
 # ax3D.set_axis_off()
 
 surf = ax3D.plot_surface(X, Y, W, 
-                        cmap=cm.coolwarm,
+                        cmap="terrain",
                         antialiased=True,
                         # linewidths=0.2,
                         # edgecolor="k",
-                        alpha=0.7
+                        alpha=1.0
                         )
 ax3D.scatter3D(lastPop[:,0],
                lastPop[:,1],

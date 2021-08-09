@@ -1,9 +1,10 @@
 # coding: utf-8
 
 import numpy as np
-from numpy.lib.utils import _set_function_name
 import numpy.random as rd
 import time
+
+from _utils import uniform_init_population_lhs,uniform_init_population_random
 
 class continousSingleObjectiveGA : 
 
@@ -87,9 +88,33 @@ class continousSingleObjectiveGA :
         self.__constraints = constraints
 
         self.__nPreSelected = 2 #Nombre d'individus preselectionne pour tournois
-        self.__stepMut = 0.15
-        self.__rateMut = 0.25
-        self.__crossFactor = 1.25
+
+        #Mutation
+        self.__rateMut = 0.10
+        self.__mutationMethod = "uniform" #"normal" #"polynomial"
+        self.__mutationFunction = self.__normalMutation
+        #Mutation uniforme ou normale
+        self.__stepMut = 0.10
+        #Mutation polynomiale
+        self.__etam = 0
+        self.__alpham = 1/(self.__etam+1)
+        
+
+        #Crossover
+        self.__crossoverMethod = "barycenter" #"SBX"
+        self.__crossoverFunction = self.__SBXcrossover
+        #croissement uniforme       
+        self.__crossFactor = 1.20
+        #croissement SBX
+        self.__etac = 1
+        self.__alphac = 1/(self.__etac+1)
+
+        #convergence 
+        # self.__atol = 0.
+        # self.__tol = 0.
+        self.__stagThreshold = None
+
+
         self.__constraintAbsTol = 1e-3
         self.__penalityFactor = 1e3
         self.__penalityGrowth = 1.0
@@ -98,6 +123,7 @@ class continousSingleObjectiveGA :
         self.__elitisme = True
 
         self.__initial_population = None 
+        self.__initial_population_selector = uniform_init_population_lhs
 
         self.__optiObj = None
         self.__optiX = None
@@ -109,6 +135,8 @@ class continousSingleObjectiveGA :
         self.__sign_factor = 1.0
 
         self.__selection_function = self.__selection_tournament
+
+        
 
 
     def setPreSelectNumber(self,nbr_preselected=2):
@@ -123,35 +151,82 @@ class continousSingleObjectiveGA :
         """
         self.__nPreSelected = nbr_preselected
 
-    def setMutationParameters(self,mutation_step=0.15,mutation_rate=0.25) : 
+    def setMutationParameters(self,mutation_step=0.10,mutation_rate=0.10,etam=0,method="normal") : 
         """
         Change les parametres de mutation. 
 
         Parameters : 
 
             - mutation_step (float) option : limite de deplacement par mutation. 
-              Doit etre compris entre 0 et 1.
+              Doit etre compris entre 0 et 1. Mutation normale ou uniforme.
 
             - mutation_rate (float) option : probabilite de mutation. Doit etre 
               compris entre 0 et 1.
+            
+            - etam (int) option : paramêtre de mutation polynomiale. Valeur conseillée 0. 
+
+            - method (string) option : définition de la méthode de mutation. 
+                'uniform' : distribution uniforme de mutation ; 
+                'normal' : distribution normale, réduite, centrée de mutation ; 
+                'polynomial' : distribution polynomial [Ripon et al., 2007]
+
+
+        [Ripon et al., 2007] :  Ripon K.S.N., Kwong S. and Man K.F. (2007) a 
+        real-coding jumping gene genetic algorithm (RJGGA) for multiobjective optimization.
+        Information Sciences, Volume 177,
+        Issue 2, 632-654
         """
 
-        self.__stepMut = mutation_rate
+        self.__stepMut = mutation_step
         self.__rateMut = mutation_rate
+        self.__etam = etam
+        self.__alpham = 1/(self.__etam+1)
+
+        if method == 'normal' : 
+            self.__mutationMethod = method
+            self.__mutationFunction = self.__normalMutation
+        if method == 'uniform' : 
+            self.__mutationMethod = method
+            self.__mutationFunction = self.__uniformMutation
+        if method == 'polynomial' : 
+            self.__mutationMethod = method
+            self.__mutationFunction = self.__polynomialMutation
 
 
-    def setCrossFactor(self,crossover_factor=1.25):
+    def setCrossoverParameters(self,crossover_factor=1.25,etac=1,method="SBX"):
         """
-        Change la limite de barycentre dans l'operateur de reproduction. Si 
-        egale a 1, les enfants seront strictement entre les parents. Si 
-        superieur a 1, les enfants peuvent etre a l'exterieur du segment parent. 
+        Change les paramètres de croissement des solutions
 
         Parameter : 
 
             - crossover_factor (float) option : facteur de melange des 
-              individus parents ; 
+              individus parents pour la méthode barycentrique (barycenter).
+              Valeur conseillée 1.20 ; 
+            
+            - etac (int) option : indice de croissement de la méthode SBX.
+              Valeur conseillée 0.
+              Simulated Binary Crossover - [Deb and al 95]
+            
+            - method (string) option : Définition de la méthode de croissement. 
+                "SBX" : Simulated Binary Crossover - [Deb and al 95] ;
+                "barycenter" : barycentre arithmétique ; 
+
+
+        [Deb and al 95] : K. Deb, S. Agarwal, Simulated binary crossover
+        for continuous search space, Complex Systems 9 (1995) 115–148
         """
         self.__crossFactor = crossover_factor
+        self.__etac = etac
+        self.__alphac = 1/(self.__etac+1)
+
+        if method == "SBX" : 
+            self.__crossoverMethod = method
+            self.__crossoverFunction = self.__SBXcrossover
+        
+        if method == "barycenter" : 
+            self.__crossoverMethod = method
+            self.__crossoverFunction = self.__barycenterCrossover
+
 
     def setSharingDist(self,sharingDist=None) :
         """
@@ -163,7 +238,10 @@ class continousSingleObjectiveGA :
               solution. Si None, le parametre est initialise a 
               1/(taille population).
         """
+
         self.__sharingDist = sharingDist
+
+
 
     def setSelectionMethod(self,method="tournament"):
         """
@@ -283,30 +361,64 @@ class continousSingleObjectiveGA :
         self.__preProcess = preprocess_function
 
 
-    def define_initial_population(self,xstart):
+    def define_initial_population(self,xstart=None,selector='LHS'):
         """
         Definition d'une population initiale. 
 
         Parameter : 
 
-            - xstart (array(npop,ndof)) : 
+            - xstart (array(npop,ndof)) or None option : 
                 xstart est la solution initiale. Ses dimensions doivent etre de
                 (npop,ndof). 
                 npop la taille de la population et ndof le nombre de variable
                 (degrees of freedom).
+            
+            - selector (string) option : 
+                si pas de xstart definit, selection aléatoire : 
+                    'LHS' : Latin Hypercube Selector, variante meilleure que uniforme ; 
+                    'random' : loi uniforme ; 
+                    sinon 'LHS' ; 
+        """
+        if xstart is not None : 
+            x = np.array(xstart)
+            npop,ndof = x.shape
+            if ndof != self.__ndof : 
+                raise ValueError("The size of initial population is not corresponding to bounds size")
+
+            xpop = np.maximum(np.minimum((x-self.__xmin)/(self.__xmax-self.__xmin),1.0),0.0)
+            if npop%2 != 0 : 
+                xpop = np.insert(xpop,0,0.5,axis=0)
+            
+            self.__initial_population = xpop
+        
+        
+        elif selector == 'lhs' : 
+            self.__initial_population = None
+            self.__initial_population_selector = uniform_init_population_lhs
+        
+
+        elif selector == 'random' : 
+            self.__initial_population = None
+            self.__initial_population_selector = uniform_init_population_random
+
+        else : 
+            self.__initial_population = None
+            self.__initial_population_selector = uniform_init_population_lhs
+        
+        
+    def setConvergenceCriteria(self,stagnationThreshold=None):
+        """
+        Définition des paramètres de convergence de l'algorithme. d
+
+        Parameters :
+
+            - stagnationThreshold (int or None) : nombre d'itération sans 
+              amélioration de la meilleure solution. Si None, pas d'évaluation du critère. 
         """
 
-        x = np.array(xstart)
-        npop,ndof = x.shape
-        if ndof != self.__ndof : 
-            raise ValueError("The size of initial population is not corresponding to bounds size")
-
-        xpop = np.maximum(np.minimum((x-self.__xmin)/(self.__xmax-self.__xmin),1.0),0.0)
-        if npop%2 != 0 : 
-            xpop = np.insert(xpop,0,0.5,axis=0)
-
-        self.__initial_population = xpop
-
+        # self.__atol = atol
+        # self.__tol = tol
+        self.__stagThreshold = stagnationThreshold
 
 
     ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
@@ -394,7 +506,33 @@ class continousSingleObjectiveGA :
         children[:npop//2] = alphaCross*couples[:,0] + (1-alphaCross)*couples[:,1]
         children[npop//2:] = alphaCross*couples[:,1] + (1-alphaCross)*couples[:,0]
 
-        return population
+        return children
+    
+    def __SBXcrossover(self,selection,population,npop):
+        couples = np.zeros((npop//2,2,self.__ndof))
+        children = np.zeros_like(population)
+        uCross = rd.sample((npop//2,self.__ndof))
+
+        betaCross = np.zeros_like(uCross)
+        uinf_filter = uCross<=0.5
+        betaCross[uinf_filter] = (2*uCross[uinf_filter])**(self.__alphac)
+        betaCross[~uinf_filter] = (2*(1-uCross[~uinf_filter]))**(-self.__alphac)
+
+        for i in range(npop//2):
+            k = i
+            while k == i :
+                k = rd.randint(0,npop//2-1)
+            couples[i] = [selection[i],selection[k]]
+        
+        x1 = couples[:,0]
+        x2 = couples[:,1]
+
+        children[:npop//2] = 0.5*( (1-betaCross)*x1 + (1+betaCross)*x2 )
+        children[npop//2:] = 0.5*( (1+betaCross)*x1 + (1-betaCross)*x2 )
+
+
+
+        return children
 
     def __sharingFunction(self,fitness,population):
         """
@@ -443,26 +581,60 @@ class continousSingleObjectiveGA :
         selection = population[index_select]
         return selection
 
-    def __mutation_delta(self,population,npop) :
+    def __uniformMutation(self,population,npop) :
         """
         Operateur de mutation
         """
         probaMutation = rd.sample((npop,self.__ndof))
         deltaX = self.__stepMut*(rd.sample((npop,self.__ndof))-0.5)
         population = population + deltaX*(probaMutation<=self.__rateMut)
+
         return population
+
+    def __normalMutation(self,population,npop) :
+        """
+        Operateur de mutation
+        """
+        probaMutation = rd.sample((npop,self.__ndof))
+        deltaX = self.__stepMut*( rd.normal(size=(npop,self.__ndof)) )
+        population = population + deltaX*(probaMutation<=self.__rateMut)
+
+        return population
+    
+
+    def __polynomialMutation(self,population,npop):
+        """
+        Operateur de mutation
+        """
+        probaMutation = rd.sample((npop,self.__ndof))
+
+        uMut = rd.sample((npop,self.__ndof))
+        uinf_filter = uMut < 0.5
+        deltaMut = np.zeros_like(uMut)
+        deltaMut[uinf_filter] = (2*uMut[uinf_filter])**self.__alpham - 1 
+        deltaMut[~uinf_filter] = 1-(2*(1-uMut[~uinf_filter]))**self.__alpham
+        population = population + deltaMut*(probaMutation<=self.__rateMut)
+
+        return population
+    
+
+
 
     def __selection_elitisme(self,parents_pop,parents_obj,children_pop,children_obj,children_penal,feasibility) :
         """
         Operateur elitisme
         """
+        if self.__constraintMethod == 'feasibility' : 
+            child_filter = feasibility[:]
+        else : 
+            child_filter = np.ones_like(feasibility,dtype=bool)
 
         if self.__optiX is None :
-            feasible_pop = np.array([pi for pi in parents_pop]+[ci for ci in children_pop[feasibility]])
-            feasible_obj = np.array([pi for pi in parents_obj]+[ci for ci in children_obj[feasibility]])
+            feasible_pop = np.concatenate((parents_pop,children_pop[child_filter]), axis=0)
+            feasible_obj = np.concatenate( (parents_obj,children_obj[child_filter]) )
         else :
-            feasible_pop = np.array([pi for pi in parents_pop]+[ci for ci in children_pop[feasibility]]+[self.__optiX])
-            feasible_obj = np.array([pi for pi in parents_obj]+[ci for ci in children_obj[feasibility]]+[self.__optiObj])
+            feasible_pop =  np.concatenate( (parents_pop,children_pop[child_filter],[self.__optiX]), axis=0)
+            feasible_obj = np.concatenate( (parents_obj,children_obj[child_filter],[self.__optiObj]) )
 
         npop = len(children_pop)
         nfeasible = len(feasible_pop)
@@ -481,7 +653,9 @@ class continousSingleObjectiveGA :
             omax = objective.max()
             fitness = (objective-omin)/(omax-omin)
 
-            return population,objective,population,objective,fitness
+            parents_pop = population[:]
+            parents_obj = objective[:]
+            return population,objective,parents_pop,parents_obj,fitness
 
 
         else :
@@ -494,11 +668,11 @@ class continousSingleObjectiveGA :
             sortedIndex = np.argsort(penalObj)[::-1]
             sortedIndex = sortedIndex[:nextend]
 
-            population = np.array([xi for xi in feasible_pop]+[xi for xi in notfeasible_pop[sortedIndex]])
-            objective = np.array([xi for xi in feasible_obj]+[xi for xi in notfeasible_obj[sortedIndex]])
+            population = np.concatenate( (feasible_pop,notfeasible_pop[sortedIndex]), axis=0)
+            objective = np.concatenate( (feasible_obj,notfeasible_obj[sortedIndex]) )
 
             if self.__constraintMethod == 'penality' : 
-                penality = np.array([0.0 for xi in feasible_obj]+[xi for xi in notfeasible_penal[sortedIndex]])
+                penality = np.concatenate( (feasible_obj*0.0, notfeasible_penal[sorted_index]) )
                 penalObj = objective - penality
                 omin = penalObj.min()
                 omax = penalObj.max()
@@ -510,12 +684,13 @@ class continousSingleObjectiveGA :
 
             parents_obj = feasible_obj[:]
             parents_pop = feasible_pop[:]
-            return population,objective,feasible_pop,feasible_obj,fitness
+            return population,objective,parents_pop,parents_obj,fitness
 
     def __archive_solution(self,parents_pop,parents_obj):
         """
         Archive la solition de meilleur objectif
         """
+        better_solution = False
         if len(parents_pop) > 0 :
             indexmax = np.argmax(parents_obj)
             maxObj = parents_obj[indexmax]
@@ -523,11 +698,14 @@ class continousSingleObjectiveGA :
             if self.__optiObj is None :
                 self.__optiX = parents_pop[indexmax]*(self.__xmax-self.__xmin)+self.__xmin
                 self.__optiObj = parents_obj[indexmax]
+                better_solution = True
 
             else :
                 if self.__optiObj < maxObj :
                     self.__optiX = parents_pop[indexmax]*(self.__xmax-self.__xmin)+self.__xmin
                     self.__optiObj = parents_obj[indexmax]
+                    better_solution = True
+        return better_solution
 
     def __archive_details(self,generation):
         """
@@ -537,6 +715,21 @@ class continousSingleObjectiveGA :
             self.__statOptimisation[generation] = self.__optiObj*self.__sign_factor
         else : 
             self.__statOptimisation[generation] = None
+
+
+
+    def __checkConvergenceState(self,generation,last_improvement) : 
+
+        if self.__stagThreshold is not None : 
+            c1 = (generation - last_improvement) > self.__stagThreshold
+        else : 
+            c1 = False
+
+        converged = c1
+        return converged
+
+
+
 
     ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
     ###                         ALGORITHME
@@ -559,7 +752,7 @@ class continousSingleObjectiveGA :
         ndof = self.__ndof
 
         if self.__initial_population is None : 
-            population = rd.sample((npop,ndof)) #population initiale
+            population = self.__initial_population_selector((npop,ndof)) #population initiale
         else : 
             population = self.__initial_population
             npop = len(population)
@@ -575,6 +768,7 @@ class continousSingleObjectiveGA :
         self.__success = False
         self.__constrViolation = []
         self.__lastPop = None
+        last_improvement = 0
 
         self.__statOptimisation  = np.zeros(ngen)
         objective = np.zeros(npop)
@@ -594,9 +788,11 @@ class continousSingleObjectiveGA :
 
             selection = self.__selection_function(population,npop,fitness)
 
-            children_pop = self.__barycenterCrossover(selection,population,npop)
+            children_pop = self.__crossoverFunction(selection,population,npop)
 
-            children_pop = self.__mutation_delta(children_pop,npop)
+            children_pop = np.minimum(1.0,np.maximum(0.0,children_pop))
+
+            children_pop = self.__mutationFunction(children_pop,npop)
 
             children_pop = np.minimum(1.0,np.maximum(0.0,children_pop))
 
@@ -616,19 +812,27 @@ class continousSingleObjectiveGA :
                                                     penality,
                                                     feasibility)
             else :
-                population = children_pop
-                objective = children_obj
+                population = children_pop[:]
+                objective = children_obj[:]
 
 
 
-            self.__archive_solution(children_pop[feasibility],children_obj[feasibility])
+            better_sol = self.__archive_solution(children_pop[feasibility],children_obj[feasibility])
             self.__archive_details(generation)
+
+            if better_sol : 
+                last_improvement = generation
+            
+            converged = self.__checkConvergenceState(generation,
+                                                     last_improvement)
 
             if verbose :
                 print('Iteration ',generation+1)
 
 
-
+            if converged : 
+                print("SOLUTION CONVERGED")
+                break 
 
 
         Xarray = children_pop[feasibility]*(xmax-xmin) + xmin
@@ -644,7 +848,7 @@ class continousSingleObjectiveGA :
         print('\n'*2+'#'*60+'\n')
         print('AG iterations completed')
         print("Success : ", self.__success)
-        print('Number of generations : ',ngen)
+        print('Number of generations : ',generation+1)
         print('Population size : ',npop)
         print('Elapsed time : %.3f s'%duration)
 
@@ -883,10 +1087,26 @@ class continousBiObjective_NSGA():
         self.__preProcess = preprocess_function
         self.__constraints = constraints
 
-        self.__nPreSelected = 2 #Nombre d'individus preselectionne pour tournois
-        self.__stepMut = 0.15
-        self.__rateMut = 0.25
-        self.__crossFactor = 1.25
+        #Mutation
+        self.__rateMut = 0.10
+        self.__mutationMethod = "normal" #"uniform" #"polynomial"
+        self.__mutationFunction = self.__normalMutation
+        #Mutation uniforme ou normale
+        self.__stepMut = 0.10
+        #Mutation polynomiale
+        self.__etam = 0
+        self.__alpham = 1/(self.__etam+1)
+        
+
+        #Crossover
+        self.__crossoverMethod = "SBX" 
+        self.__crossoverFunction = self.__SBXcrossover
+        #croissement uniforme       
+        self.__crossFactor = 1.20
+        #croissement SBX
+        self.__etac = 1
+        self.__alphac = 1/(self.__etac+1)
+
         self.__constraintAbsTol = 1e-3
         self.__penalityFactor = 1e3
         self.__penalityGrowth = 1.0
@@ -901,6 +1121,7 @@ class continousBiObjective_NSGA():
         self.__constraintMethod = "penality"
 
         self.__initial_population = None 
+        self.__initial_population_selector = uniform_init_population_lhs
         self.__success = False
         self.__lastPop = None
         self.__nfront = 0
@@ -920,47 +1141,81 @@ class continousBiObjective_NSGA():
     ###                         PARAMETRISATION
     ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
 
-    def setPreSelectNumber(self,nbr_preselected=2):
-        """
-        Change le nombre d'individus pre-selectionnes dans un mode de selection 
-        par tournois. 
-
-        Parameter : 
-
-            - nbr_preselected (int) option : nombre d'individus participants 
-              à chaque tournois. Superieur a 1.
-        """
-        self.__nPreSelected = nbr_preselected
-
-    def setMutationParameters(self,mutation_step=0.15,mutation_rate=0.25) : 
+    def setMutationParameters(self,mutation_step=0.10,mutation_rate=0.10,etam=0,method="normal") : 
         """
         Change les parametres de mutation. 
 
         Parameters : 
 
             - mutation_step (float) option : limite de deplacement par mutation. 
-              Doit etre compris entre 0 et 1.
+              Doit etre compris entre 0 et 1. Mutation normale ou uniforme.
 
-            - mutation_rate (float) option : probabilite de mutation. 
-              Doit etre compris entre 0 et 1.
+            - mutation_rate (float) option : probabilite de mutation. Doit etre 
+              compris entre 0 et 1.
+            
+            - etam (int) option : paramêtre de mutation polynomiale. Valeur conseillée 0. 
+
+            - method (string) option : définition de la méthode de mutation. 
+                'uniform' : distribution uniforme de mutation ; 
+                'normal' : distribution normale, réduite, centrée de mutation ; 
+                'polynomial' : distribution polynomial [Ripon et al., 2007]
+
+
+        [Ripon et al., 2007] :  Ripon K.S.N., Kwong S. and Man K.F. (2007) a 
+        real-coding jumping gene genetic algorithm (RJGGA) for multiobjective optimization.
+        Information Sciences, Volume 177,
+        Issue 2, 632-654
         """
 
-        self.__stepMut = mutation_rate
+        self.__stepMut = mutation_step
         self.__rateMut = mutation_rate
+        self.__etam = etam
+        self.__alpham = 1/(self.__etam+1)
 
-    def setCrossFactor(self,crossover_factor=1.25):
+        if method == 'normal' : 
+            self.__mutationMethod = method
+            self.__mutationFunction = self.__normalMutation
+        if method == 'uniform' : 
+            self.__mutationMethod = method
+            self.__mutationFunction = self.__uniformMutation
+        if method == 'polynomial' : 
+            self.__mutationMethod = method
+            self.__mutationFunction = self.__polynomialMutation
+
+
+    def setCrossoverParameters(self,crossover_factor=1.25,etac=1,method="SBX"):
         """
-        Change la limite de barycentre dans l'operateur de reproduction. 
-        Si egale a 1, les enfants seront strictement entre les parents. 
-        Si superieur a 1, les enfants peuvent etre a l'exterieur du segment 
-        parent. 
+        Change les paramètres de croissement des solutions
 
         Parameter : 
 
             - crossover_factor (float) option : facteur de melange des 
-              individus parents ; 
+              individus parents pour la méthode barycentrique (barycenter).
+              Valeur conseillée 1.20 ; 
+            
+            - etac (int) option : indice de croissement de la méthode SBX.
+              Valeur conseillée 0.
+              Simulated Binary Crossover - [Deb and al 95]
+            
+            - method (string) option : Définition de la méthode de croissement. 
+                "SBX" : Simulated Binary Crossover - [Deb and al 95] ;
+                "barycenter" : barycentre arithmétique ; 
+
+
+        [Deb and al 95] : K. Deb, S. Agarwal, Simulated binary crossover
+        for continuous search space, Complex Systems 9 (1995) 115–148
         """
         self.__crossFactor = crossover_factor
+        self.__etac = etac
+        self.__alphac = 1/(self.__etac+1)
+
+        if method == "SBX" : 
+            self.__crossoverMethod = method
+            self.__crossoverFunction = self.__SBXcrossover
+        
+        if method == "barycenter" : 
+            self.__crossoverMethod = method
+            self.__crossoverFunction = self.__barycenterCrossover
 
     def setSharingDist(self,sharingDist=None) :
         """
@@ -1046,29 +1301,49 @@ class continousBiObjective_NSGA():
         """
         self.__preProcess = preprocess_function
 
-    def define_initial_population(self,xstart):
+    def define_initial_population(self,xstart=None,selector='LHS'):
         """
         Definition d'une population initiale. 
 
         Parameter : 
 
-            - xstart (array(npop,ndof)) : 
-                xstart est la solution initiale. Ses dimensions doivent etre 
-                de (npop,ndof). 
-                npop la taille de la population et ndof le nombre de variable 
+            - xstart (array(npop,ndof)) or None option : 
+                xstart est la solution initiale. Ses dimensions doivent etre de
+                (npop,ndof). 
+                npop la taille de la population et ndof le nombre de variable
                 (degrees of freedom).
+            
+            - selector (string) option : 
+                si pas de xstart definit, selection aléatoire : 
+                    'LHS' : Latin Hypercube Selector, variante meilleure que uniforme ; 
+                    'random' : loi uniforme ; 
+                    sinon 'LHS' ; 
         """
+        if xstart is not None : 
+            x = np.array(xstart)
+            npop,ndof = x.shape
+            if ndof != self.__ndof : 
+                raise ValueError("The size of initial population is not corresponding to bounds size")
 
-        x = np.array(xstart)
-        npop,ndof = x.shape
-        if ndof != self.__ndof : 
-            raise ValueError("The size of initial population is not corresponding to bounds size")
+            xpop = np.maximum(np.minimum((x-self.__xmin)/(self.__xmax-self.__xmin),1.0),0.0)
+            if npop%2 != 0 : 
+                xpop = np.insert(xpop,0,0.5,axis=0)
+            
+            self.__initial_population = xpop
+        
+        
+        elif selector == 'lhs' : 
+            self.__initial_population = None
+            self.__initial_population_selector = uniform_init_population_lhs
+        
 
-        xpop = np.maximum(np.minimum((x-self.__xmin)/(self.__xmax-self.__xmin),1.0),0.0)
-        if npop%2 != 0 : 
-            xpop = np.insert(xpop,0,0.5,axis=0)
+        elif selector == 'random' : 
+            self.__initial_population = None
+            self.__initial_population_selector = uniform_init_population_random
 
-        self.__initial_population = xpop
+        else : 
+            self.__initial_population = None
+            self.__initial_population_selector = uniform_init_population_lhs
 
     def setSelectionMethod(self,method="tournament"):
         """
@@ -1140,7 +1415,33 @@ class continousBiObjective_NSGA():
         children[:npop//2] = alphaCross*couples[:,0] + (1-alphaCross)*couples[:,1]
         children[npop//2:] = alphaCross*couples[:,1] + (1-alphaCross)*couples[:,0]
 
-        return population
+        return children
+    
+    def __SBXcrossover(self,selection,population,npop):
+        couples = np.zeros((npop//2,2,self.__ndof))
+        children = np.zeros_like(population)
+        uCross = rd.sample((npop//2,self.__ndof))
+
+        betaCross = np.zeros_like(uCross)
+        uinf_filter = uCross<=0.5
+        betaCross[uinf_filter] = (2*uCross[uinf_filter])**(self.__alphac)
+        betaCross[~uinf_filter] = (2*(1-uCross[~uinf_filter]))**(-self.__alphac)
+
+        for i in range(npop//2):
+            k = i
+            while k == i :
+                k = rd.randint(0,npop//2-1)
+            couples[i] = [selection[i],selection[k]]
+        
+        x1 = couples[:,0]
+        x2 = couples[:,1]
+
+        children[:npop//2] = 0.5*( (1-betaCross)*x1 + (1+betaCross)*x2 )
+        children[npop//2:] = 0.5*( (1+betaCross)*x1 + (1-betaCross)*x2 )
+
+
+
+        return children
 
     def __sharingFunction(self,fitness,population):
         """
@@ -1159,13 +1460,40 @@ class continousBiObjective_NSGA():
         fitness = (fitness-fmin)/(fmax-fmin)
         return fitness
 
-    def __mutation_delta(self,population,npop) :
+    def __uniformMutation(self,population,npop) :
         """
         Operateur de mutation
         """
         probaMutation = rd.sample((npop,self.__ndof))
         deltaX = self.__stepMut*(rd.sample((npop,self.__ndof))-0.5)
         population = population + deltaX*(probaMutation<=self.__rateMut)
+
+        return population
+
+    def __normalMutation(self,population,npop) :
+        """
+        Operateur de mutation
+        """
+        probaMutation = rd.sample((npop,self.__ndof))
+        deltaX = self.__stepMut*( rd.normal(size=(npop,self.__ndof)) )
+        population = population + deltaX*(probaMutation<=self.__rateMut)
+
+        return population
+    
+
+    def __polynomialMutation(self,population,npop):
+        """
+        Operateur de mutation
+        """
+        probaMutation = rd.sample((npop,self.__ndof))
+
+        uMut = rd.sample((npop,self.__ndof))
+        uinf_filter = uMut <= 0.5
+        deltaMut = np.zeros_like(uMut)
+        deltaMut[uinf_filter] = (2*uMut[uinf_filter])**self.__alpham - 1 
+        deltaMut[~uinf_filter] = 1-(2*(1-uMut[~uinf_filter]))**self.__alpham
+        population = population + deltaMut*(probaMutation<=self.__rateMut)
+
         return population
     
     def __fast_non_dominated_sort(self,x1,x2,selection_size=None):
@@ -1301,7 +1629,9 @@ class continousBiObjective_NSGA():
             penality[i] = penal_i
 
         if self.__constraintMethod == "penality" :
-            return objective1-penality,objective2-penality,feasibility
+            pobj1 = objective1-self.__penalityFactor*penality
+            pobj2 = objective2-self.__penalityFactor*penality
+            return pobj1,pobj2,feasibility
         
         if self.__constraintMethod == "feasibility" :
             o1min,o2min = objective1.min(),objective2.min()
@@ -1336,18 +1666,14 @@ class continousBiObjective_NSGA():
                                   children_obj2,
                                   feasibility) :
 
+        child_filter = feasibility[:]
 
-        feasible_pop = np.array([pi for pi in parents_pop]+[ci for ci in children_pop[feasibility]])
-        feasible_obj1 = np.array([pi for pi in parents_obj1]+[ci for ci in children_obj1[feasibility]])
-        feasible_obj2 = np.array([pi for pi in parents_obj2]+[ci for ci in children_obj2[feasibility]])
+        feasible_pop = np.concatenate((parents_pop,children_pop[child_filter]),axis=0)
+        feasible_obj1 = np.concatenate( (parents_obj1,children_obj1[child_filter]) )
+        feasible_obj2 = np.concatenate( (parents_obj2,children_obj2[child_filter]) )
 
         npop = len(children_pop)
         nfeasible = len(feasible_pop)
-        # omin1,omax1 = feasible_obj1.min(),feasible_obj1.max()
-        # omin2,omax2 = feasible_obj2.min(),feasible_obj2.max()
-
-
-
 
         if (nfeasible >= npop) :
 
@@ -1401,10 +1727,11 @@ class continousBiObjective_NSGA():
             parents_obj1 = feasible_obj1[rank_pop==1]
             parents_obj2 = feasible_obj2[rank_pop==1]
 
-            population = np.array([xi for xi in feasible_pop]+[xi for xi in notfeasible_pop[:nextend]])
-            objective1 = np.array([xi for xi in feasible_obj1]+[xi for xi in notfeasible_obj1[:nextend]])
-            objective2 = np.array([xi for xi in feasible_obj2]+[xi for xi in notfeasible_obj2[:nextend]])
-            rank_pop = np.array([xi for xi in rank_pop]+[max_rank+1 for i in range(nextend)])
+            population = np.concatenate( (feasible_pop, notfeasible_pop[:nextend]), axis=0 )
+            objective1 = np.concatenate( (feasible_obj1, notfeasible_obj1[:nextend]) )
+            objective2 = np.concatenate( (feasible_obj2, notfeasible_obj2[:nextend]) )
+            rank_pop = np.concatenate( (rank_pop, [max_rank+1]*nextend) )
+
             fitness = self.__crowning_distance(objective1,objective2,rank_pop)
 
 
@@ -1437,7 +1764,7 @@ class continousBiObjective_NSGA():
         self.__frontsize = 0
 
         if self.__initial_population is None : 
-            population = rd.sample((npop,ndof)) #population initiale
+            population = self.__initial_population_selector((npop,ndof)) #population initiale
         else : 
             population = self.__initial_population
             npop = len(population)
@@ -1446,7 +1773,7 @@ class continousBiObjective_NSGA():
             self.__sharingDist = 1/npop
 
         if nfront is None :
-            nfront = 3*npop
+            nfront = 2*npop
         self.__nfront = nfront
 
         xmin = self.__xmin
@@ -1481,9 +1808,11 @@ class continousBiObjective_NSGA():
 
             selection = self.__selection_function(population,npop,rank_pop,fitness)
 
-            children_pop = self.__barycenterCrossover(selection,population,npop)
+            children_pop = self.__crossoverFunction(selection,population,npop)
 
-            children_pop = self.__mutation_delta(children_pop,npop)
+            children_pop = np.minimum(1.0,np.maximum(0.0,children_pop))
+
+            children_pop = self.__mutationFunction(children_pop,npop)
 
             children_pop = np.minimum(1.0,np.maximum(0.0,children_pop))
 

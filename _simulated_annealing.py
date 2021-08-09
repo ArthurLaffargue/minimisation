@@ -10,6 +10,8 @@ class simulatedAnnealing :
 
         self.__xmin = np.minimum(xmin,xmax)
         self.__xmax = np.maximum(xmin,xmax)
+        self.__x0 = None
+        self.__evalFunc0 = None
 
         self.__ndof = len(self.__xmin)
 
@@ -23,7 +25,7 @@ class simulatedAnnealing :
         self.__initialTemp = 1e6
         self.__tempDecreaseRatio = 0.99
         if perturbationRatio is None :
-            self.__perturbationRatio = 1/(self.__ndof+1)
+            self.__perturbationRatio = 0.5
         else :   
             self.__perturbationRatio = perturbationRatio
 
@@ -73,7 +75,8 @@ class simulatedAnnealing :
 
 
     def __localPerturbation(self,x):
-        r0 = 2*self.__perturbationRatio*(rd.random(self.__ndof)-0.5)
+        r0 = 2*self.__perturbationRatio*(rd.sample(size=self.__ndof)-0.5)
+        # r0 = self.__perturbationRatio*rd.normal(size=self.__ndof)
         xnew = np.maximum(np.minimum(x + r0,1),0)
         return xnew
 
@@ -91,9 +94,16 @@ class simulatedAnnealing :
 
         startTime = time.time()
 
-        s0 = rd.sample(ndof)
-        x0 = s0*(xmax-xmin) + xmin
-        f0,feasibility,_ = self.__evaluateFitness(x0)
+        if (self.__x0 is not None) and (self.__evalFunc0 is not None): 
+            s0 = rd.sample(ndof)
+            x0 = s0*(xmax-xmin) + xmin
+            f0,feasibility,_ = self.__evaluateFitness(x0)
+        else : 
+            x0 = self.__x0
+            s0 = (x0-xmin)/(xmax-xmin)
+            f0,feasibility,_ = self.__evalFunc0 
+
+
         theta = self.__initialTemp
 
         self.__optiObj = f0
@@ -179,29 +189,35 @@ class simulatedAnnealing :
 
         s0 = rd.sample(ndof)
         x0 = s0*(xmax-xmin) + xmin
-        f0,feasibility,_ = self.__evaluateFitness(x0)
+        f0,feasible,cviol = self.__evaluateFitness(x0)
+        fopt,xopt = (f0,feasible,cviol),x0
         for i in range(npermutations):
             s1 = self.__localPerturbation(s0)
             x1 = s1*(xmax-xmin) + xmin
-            f1,feasible,_= self.__evaluateFitness(x1)
+            f1,feasible,cviol= self.__evaluateFitness(x1)
             df = f1-f0
             f0 = f1
             x0 = x1
             s0 = s1
             deltaF[i] = df
+            if (f0<fopt[0]) and (cviol<=fopt[2]) : 
+                fopt,xopt = (f0,feasible,cviol),x0
+
+        self.__evalFunc0 = fopt
+        self.__x0 = xopt
 
         dfMean = deltaF[deltaF>0].mean()
 
         if config == "highTemp":
             self.__initialTemp = -dfMean/np.log(0.60)
         elif config == "lowTemp" :
-            self.__initialTemp = -dfMean/np.log(0.20)
+            self.__initialTemp = -dfMean/np.log(0.30)
         else :
             self.__initialTemp = -dfMean/np.log(0.85)
 
 
-        self.__finalTemp = -dfMean/np.log(0.001)
-        self.__tempDecreaseRatio = (self.__finalTemp/self.__initialTemp)**(1/(0.5*self.__maxIter))
+        self.__finalTemp = -dfMean/np.log(0.05)
+        self.__tempDecreaseRatio = (self.__finalTemp/self.__initialTemp)**(1/(self.__maxIter))
 
         if verbose : 
             print('\n'*2+'#'*60+'\n')
@@ -221,7 +237,7 @@ def minimize_simulatedAnnealing(func,
                 initialTemperature=None,
                 temperatureDecreaseRate=None,
                 autoSetUpIter=100,
-                config='highTemp',
+                config='lowTemp',
                 penalityFactor = 1e3, 
                 constraintAbsTol = 1e-3,
                 verbose = False,
@@ -255,4 +271,18 @@ def minimize_simulatedAnnealing(func,
     return res
 
 
-
+if __name__ == "__main__" :
+    
+    func = lambda x : x[0]**2 + x[1]**2
+    
+    xmin = [-5,-5]
+    xmax = [5,5]
+    
+    resSA = minimize_simulatedAnnealing(func,xmin,xmax,
+                                        maxIter=900,
+                                        autoSetUpIter=100,
+                                        returnDict=True,
+                                        verbose=False)
+    
+    for ri in resSA : 
+         print(ri," : ",resSA[ri])

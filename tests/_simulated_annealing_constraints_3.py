@@ -19,17 +19,23 @@ from _simulated_annealing import minimize_simulatedAnnealing
 cons = [{'type': 'eq', 'fun': c0}]
 
 maxIter = 10000
-mindict = minimize_simulatedAnnealing(f0,
-                                    xmin,
-                                    xmax,
-                                    maxIter=maxIter,
-                                    autoSetUpIter=100,
-                                    constraintAbsTol=0.1,
-                                    penalityFactor=100,
-                                    returnDict=True,
-                                    constraints=cons
-                        )
-Xsa = mindict["x"]
+listXsa = []
+for i in range(10):
+        print("#SOLVE : ",i)
+        mindict = minimize_simulatedAnnealing(f0,
+                                        xmin,
+                                        xmax,
+                                        maxIter=maxIter,
+                                        autoSetUpIter=100,
+                                        constraintAbsTol=0.1,
+                                        penalityFactor=100,
+                                        returnDict=True,
+                                        constraints=cons
+                                )
+        Xsa = mindict["x"]
+        listXsa.append(Xsa)
+
+listXsa = np.array(listXsa)
 
 for si in mindict :
         print(si," : ",mindict[si])
@@ -65,7 +71,7 @@ plt.plot(xScipy[0],xScipy[1],
         ls='',
         markeredgecolor='k',
         markerfacecolor="c")
-plt.plot(Xsa[0],Xsa[1],label='Solution SA',
+plt.plot(listXsa[:,0],listXsa[:,1],label='Solution SA',
         marker='o',
         ls='',
         markeredgecolor='k',
@@ -90,13 +96,13 @@ ax2 = figure2.add_subplot(212)
 pts_curve = np.array([x,fc1(x)]).T
 filtre_curve = (pts_curve[:,1] <= 75) & (pts_curve[:,1] >= -75)
 pts_curve = pts_curve[filtre_curve]
-Ysa = f0(Xsa)
+Ysa = [f0(Xsa_i) for Xsa_i in listXsa]
 
 f0_curve = [f0(xi) for xi in pts_curve]
 ax1.plot(pts_curve[:,0],f0_curve,'.')
-ax1.plot(Xsa[0],Ysa,"o")
+ax1.plot(listXsa[:,0],Ysa,"o")
 ax2.plot(pts_curve[:,1],f0_curve,'.')
-ax2.plot(Xsa[1],Ysa,"o")
+ax2.plot(listXsa[:,1],Ysa,"o")
 
 
 plt.show()

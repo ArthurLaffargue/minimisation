@@ -21,18 +21,22 @@ from _genetic_algorithms import continousSingleObjectiveGA
 
 cons = [{'type': 'eq', 'fun': c0}]
 
-npop = 120
-ngen = npop*10
+npop = 50
+ngen = 10000//npop
 
 ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,cons)
-ga_instance.setPenalityParams(constraintAbsTol=0.1,penalityFactor=1e3,penalityGrowth=1.1)
-ga_instance.setCrossFactor(1.33)
-ga_instance.setElitisme(False)
+ga_instance.setPenalityParams(constraintAbsTol=0.1,penalityFactor=1000,penalityGrowth=1.0)
+ga_instance.setElitisme(True)
 
-Xag,Yag = ga_instance.minimize(npop,ngen,verbose=False)
+
+listXga = []
+for i in range(10):
+        print("#RESOLVE : ",i)
+        Xag,Yag = ga_instance.minimize(npop,ngen,verbose=False)
+        listXga.append(Xag)
 fitnessArray = ga_instance.getStatOptimisation()
 lastPop = ga_instance.getLastPopulation()
-
+listXga = np.array(listXga)
 ## SCIPY
 bounds = [(xi,xj) for xi,xj in zip(xmin,xmax)]
 startX = np.mean(bounds,axis=1)
@@ -63,7 +67,7 @@ plt.plot(xScipy[0],xScipy[1],
         ls='',
         markeredgecolor='k',
         markerfacecolor="c")
-plt.plot(Xag[0],Xag[1],label='Solution AG',
+plt.plot(listXga[:,0],listXga[:,1],label='Solution AG',
         marker='o',
         ls='',
         markeredgecolor='k',
@@ -97,11 +101,12 @@ pts_curve = np.array([x,fc1(x)]).T
 filtre_curve = (pts_curve[:,1] <= 75) & (pts_curve[:,1] >= -75)
 pts_curve = pts_curve[filtre_curve]
 
+Yag = [f0(xagi) for xagi in listXga]
 f0_curve = [f0(xi) for xi in pts_curve]
 ax1.plot(pts_curve[:,0],f0_curve,'.')
-ax1.plot(Xag[0],Yag,"o")
+ax1.plot(listXga[:,0],Yag,"o")
 ax2.plot(pts_curve[:,1],f0_curve,'.')
-ax2.plot(Xag[1],Yag,"o")
+ax2.plot(listXga[:,1],Yag,"o")
 
 
 plt.show()
