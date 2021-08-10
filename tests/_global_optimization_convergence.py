@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize,dual_annealing
+
 plt.rc('font',family='Serif')
 ## Fonction objectif
 f0 = lambda x : (-(x[1] + 47) * np.sin(np.sqrt(abs(x[0]/2 + (x[1]  + 47))))
@@ -27,10 +28,13 @@ import sys
 sys.path.append("..")
 from _simulated_annealing import minimize_simulatedAnnealing
 from _genetic_algorithms import continousSingleObjectiveGA
+from _differential_evolution import differential_evolution
 
 nloop = 10
 ga_convergence = []
 sa_convergence = []
+de_convergence = []
+
 
 maxIter = 2000
 npop = 35
@@ -51,6 +55,11 @@ for k in range(nloop):
     mindict_sa = minimize_simulatedAnnealing(f0,xmin,xmax,maxIter=maxIter,constraints=cons,returnDict=True,storeIterValues=True)
     sa_convergence.append(mindict_sa["fHistory"])
 
+    #differential evolution 
+    mindict_de = differential_evolution(f0,xmin,xmax,maxIter=ngen,popsize=npop,constraints=cons,returnDict=True,storeIterValues=True,tol=-1)
+    de_convergence.append(mindict_de["fHistory"])
+
+
 # Optimisation locale
 bounds = [(xi,xj) for xi,xj in zip(xmin,xmax)]
 startX = np.mean(bounds,axis=1)
@@ -58,49 +67,41 @@ res = minimize(f0,mindict_sa["x"],bounds=bounds)
 fscipy = res.fun
 
 
-ga_convergence = np.log10( (np.array(ga_convergence).T - fscipy)/abs(fscipy) )
-sa_convergence = np.log10( (np.array(sa_convergence).T - fscipy)/abs(fscipy) )
+ga_convergence = np.log10((np.array(ga_convergence).T - fscipy)/abs(fscipy))
+sa_convergence = np.log10((np.array(sa_convergence).T - fscipy)/abs(fscipy))
+de_convergence = np.log10((np.array(de_convergence).T - fscipy)/abs(fscipy))
 
 
 plt.figure(figsize=(8,4))
-for k,farray in enumerate(ga_convergence.T) :
-    line_ga = plt.plot(np.array(list(range(len(farray))))*npop,
-                        farray,
-                        lw = 1.0,
-                        ls ='--',
-                        color='b',
-                        alpha=0.5)[0]
-
-for k,farray in enumerate(sa_convergence.T) :
-    line_sa = plt.plot( farray,
-                        lw = 1.0,
-                        ls ='--',
-                        color='r',
-                        alpha=0.5)[0]
 
 line_sa_mean = plt.plot( sa_convergence.mean(axis=1),
-                        lw = 2.0,
+                        lw = 1.5,
                         ls ='-',
                         color='r')[0]
 
 line_ga_mean = plt.plot(np.array(list(range(len(ga_convergence))))*npop,
                         ga_convergence.mean(axis=1),
-                        lw = 2.0,
+                        lw = 1.5,
                         color='b')[0]
 
+line_de_mean = plt.plot(de_convergence.mean(axis=1),
+                        lw = 1.5,
+                        color='g')[0]
+
 plt.grid(True)
-# plt.ylim(None,1)
-plt.xlabel("Nombre de générations")
-plt.ylabel("Fonction objectif")
+plt.ylim(-8,0)
+plt.xlabel("Evaluation de la fonction")
+plt.ylabel("log10 erreur")
 # plt.yscale('log')
-plt.title("Convergence de la solution")
-plt.legend([line_ga,
-            line_sa,
+plt.title("Convergence des algorithmes")
+plt.legend([
             line_ga_mean,
-            line_sa_mean],["Genetic algorithm",
-                            "Simulated annealing",
-                            "Genetic algorithme (avg)",
-                            "Simulated annealing (avg)"])
+            line_sa_mean,
+            line_de_mean],
+            [
+            "Genetic algorithme (avg)",
+            "Simulated annealing (avg)",
+            "Differential evolution (avg)"])
 plt.tight_layout()
 plt.savefig("convergence.svg",dpi=300)
 

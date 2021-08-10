@@ -14,40 +14,45 @@ xmax = np.array([75,75])
 
 import sys
 sys.path.append("..")
-from _simulated_annealing import minimize_simulatedAnnealing
-
+from _differential_evolution import differential_evolution
 cons = [{'type': 'eq', 'fun': c0}]
 
-autoSetUpIter = 250
 maxIter = 10000
-listXsa = []
+npop = 100
+ngen = maxIter//npop
+
+listXde = []
 xopt,yopt = None, None
 for i in range(10):
         print("#SOLVE : ",i)
-        mindict = minimize_simulatedAnnealing(f0,
+        mindict = differential_evolution(f0,
                                         xmin,
                                         xmax,
-                                        maxIter=maxIter-autoSetUpIter,
-                                        autoSetUpIter=autoSetUpIter,
+                                        popsize=npop,
+                                        maxIter=ngen,
+                                        strategy = 'rand2bin',
                                         constraintAbsTol=0.1,
                                         penalityFactor=100,
                                         returnDict=True,
-                                        config='highTemp',
-                                        constraints=cons
+                                        constraints=cons,
                                 )
-        Xsa = mindict["x"]
-        Ysa = mindict["f"]
+        Xde = mindict["x"]
+        Yde = mindict["penal_func"]
+        
+        for key in mindict : 
+                if not(key.endswith("History")) : 
+                        print(key,' : ', mindict[key])
+
+        listXde.append(Xde)
 
         if yopt is None : 
-                xopt = Xsa
-                yopt = Ysa
-        elif yopt>Ysa : 
-                xopt = Xsa
-                yopt = Ysa
+                xopt = Xde
+                yopt = Yde
+        elif yopt>Yde : 
+                xopt = Xde
+                yopt = Yde
 
-        listXsa.append(Xsa)
-
-listXsa = np.array(listXsa)
+listXde = np.array(listXde)
 
 for si in mindict :
         print(si," : ",mindict[si])
@@ -59,12 +64,12 @@ startX = np.mean(bounds,axis=1)
 res = minimize(f0,xopt,bounds=bounds,constraints=cons)
 xScipy = res.x
 
-
-distance_opt = np.mean(np.sqrt(np.sum( ((xopt-listXsa)/(xmax-xmin))**2,axis=1 )))
-
-print("ACCURACY %.3f"%( (1-distance_opt)*100) )
 ## Graphe
 
+
+distance_opt = np.mean(np.sqrt(np.sum( ((xopt-listXde)/(xmax-xmin))**2,axis=1 )))
+
+print("ACCURACY %.3f"%( (1-distance_opt)*100) )
 
 n = 150
 x = np.linspace(-75,75,n)
@@ -87,7 +92,7 @@ plt.plot(xScipy[0],xScipy[1],
         ls='',
         markeredgecolor='k',
         markerfacecolor="c")
-plt.plot(listXsa[:,0],listXsa[:,1],label='Solution SA',
+plt.plot(listXde[:,0],listXde[:,1],label='Solution SA',
         marker='o',
         ls='',
         markeredgecolor='k',
@@ -112,13 +117,13 @@ ax2 = figure2.add_subplot(212)
 pts_curve = np.array([x,fc1(x)]).T
 filtre_curve = (pts_curve[:,1] <= 75) & (pts_curve[:,1] >= -75)
 pts_curve = pts_curve[filtre_curve]
-Ysa = [f0(Xsa_i) for Xsa_i in listXsa]
+Yde = [f0(Xde_i) for Xde_i in listXde]
 
 f0_curve = [f0(xi) for xi in pts_curve]
 ax1.plot(pts_curve[:,0],f0_curve,'.')
-ax1.plot(listXsa[:,0],Ysa,"o")
+ax1.plot(listXde[:,0],Yde,"o")
 ax2.plot(pts_curve[:,1],f0_curve,'.')
-ax2.plot(listXsa[:,1],Ysa,"o")
+ax2.plot(listXde[:,1],Yde,"o")
 
 
 plt.show()

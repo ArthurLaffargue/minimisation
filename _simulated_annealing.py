@@ -200,7 +200,7 @@ class simulatedAnnealing :
             x0 = x1
             s0 = s1
             deltaF[i] = df
-            if (f0<fopt[0]) and (cviol<=fopt[2]) : 
+            if (f0<fopt[0])  : 
                 fopt,xopt = (f0,feasible,cviol),x0
 
         self.__evalFunc0 = fopt
@@ -216,7 +216,7 @@ class simulatedAnnealing :
             self.__initialTemp = -dfMean/np.log(0.85)
 
 
-        self.__finalTemp = -dfMean/np.log(0.05)
+        self.__finalTemp = -dfMean/np.log(0.01)
         self.__tempDecreaseRatio = (self.__finalTemp/self.__initialTemp)**(1/(self.__maxIter))
 
         if verbose : 

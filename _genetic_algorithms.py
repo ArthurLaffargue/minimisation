@@ -101,7 +101,7 @@ class continousSingleObjectiveGA :
         
 
         #Crossover
-        self.__crossoverMethod = "barycenter" #"SBX"
+        self.__crossoverMethod = "SBX" #"SBX"
         self.__crossoverFunction = self.__SBXcrossover
         #croissement uniforme       
         self.__crossFactor = 1.20
@@ -127,6 +127,7 @@ class continousSingleObjectiveGA :
 
         self.__optiObj = None
         self.__optiX = None
+        self.__optiFeasible = False
         self.__success = False
         self.__lastPop = None
         self.__constrViolation = []
@@ -699,6 +700,7 @@ class continousSingleObjectiveGA :
                 self.__optiX = parents_pop[indexmax]*(self.__xmax-self.__xmin)+self.__xmin
                 self.__optiObj = parents_obj[indexmax]
                 better_solution = True
+                self.__optiFeasible = True
 
             else :
                 if self.__optiObj < maxObj :
@@ -725,7 +727,7 @@ class continousSingleObjectiveGA :
         else : 
             c1 = False
 
-        converged = c1
+        converged = c1 & self.__optiFeasible
         return converged
 
 
@@ -765,12 +767,13 @@ class continousSingleObjectiveGA :
         
         self.__optiObj = None
         self.__optiX = None
+        self.__optiFeasible = False
         self.__success = False
         self.__constrViolation = []
         self.__lastPop = None
         last_improvement = 0
 
-        self.__statOptimisation  = np.full(ngen,None)
+        self.__statOptimisation  = np.full(ngen,None,dtype=float)
         objective = np.zeros(npop)
 
 

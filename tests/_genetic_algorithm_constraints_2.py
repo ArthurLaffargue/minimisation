@@ -11,8 +11,8 @@ f0 = lambda x : (-(x[1] + 47) * np.sin(np.sqrt(abs(x[0]/2 + (x[1]  + 47))))
 fc1 = lambda x : -(0.001*x**3-x)
 c0 = lambda x : x[1] - fc1(x[0])
 
-xmin = [-75,-75]
-xmax = [75,75]
+xmin = np.array([-75,-75])
+xmax = np.array([75,75])
 ## Optimisation
 
 import sys
@@ -21,19 +21,30 @@ from _genetic_algorithms import continousSingleObjectiveGA
 
 cons = [{'type': 'eq', 'fun': c0}]
 
-npop = 50
+npop = 75
 ngen = 10000//npop
 
 ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,cons)
-ga_instance.setPenalityParams(constraintAbsTol=0.1,penalityFactor=1000,penalityGrowth=1.0)
+ga_instance.setPenalityParams(constraintAbsTol=0.1,penalityFactor=100,penalityGrowth=1.0)
+ga_instance.setConvergenceCriteria(stagnationThreshold=100)
 ga_instance.setElitisme(True)
 
 
 listXga = []
+xopt = None
+yopt = None
 for i in range(10):
         print("#RESOLVE : ",i)
         Xag,Yag = ga_instance.minimize(npop,ngen,verbose=False)
         listXga.append(Xag)
+
+        if yopt is None : 
+                xopt = Xag
+                yopt = Yag
+        elif yopt>Yag : 
+                xopt = Xag
+                yopt = Yag
+
 fitnessArray = ga_instance.getStatOptimisation()
 lastPop = ga_instance.getLastPopulation()
 listXga = np.array(listXga)
@@ -43,6 +54,10 @@ startX = np.mean(bounds,axis=1)
 res = minimize(f0,Xag,bounds=bounds,constraints=cons)
 xScipy = res.x
 
+
+distance_opt = np.mean(np.sqrt(np.sum( ((xopt-listXga)/(xmax-xmin))**2,axis=1 )))
+
+print("ACCURACY %.3f"%( (1-distance_opt)*100) )
 ## Graphe
 
 
