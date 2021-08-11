@@ -7,7 +7,7 @@ def uniform_init_population_lhs(shape):
     ndof = shape[1]
     dsize  = 1.0/popsize
 
-    sample_array = dsize*rd.sample(size=shape) + np.linspace(0,1,num=popsize,endpoint=False)[:,np.newaxis]
+    sample_array = dsize*rd.sample(size=shape) + np.linspace(0.,1.,num=popsize,endpoint=False)[:,np.newaxis]
     init_pop = np.zeros(shape)
     for dim in range(ndof) : 
         rdm_order = rd.permutation(popsize)

@@ -37,10 +37,11 @@ de_convergence = []
 
 
 maxIter = 2000
-npop = 35
+npop = 36
 ngen = (maxIter+1)//npop
 
 ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,constraints=cons)
+ga_instance.setConvergenceCriteria(tol=-1.)
 
 for k in range(nloop):
     print("LOOP : ",k)
@@ -89,7 +90,7 @@ line_de_mean = plt.plot(de_convergence.mean(axis=1),
                         color='g')[0]
 
 plt.grid(True)
-plt.ylim(-8,0)
+# plt.ylim(-8,0)
 plt.xlabel("Evaluation de la fonction")
 plt.ylabel("log10 erreur")
 # plt.yscale('log')

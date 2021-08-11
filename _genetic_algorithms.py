@@ -110,8 +110,8 @@ class continousSingleObjectiveGA :
         self.__alphac = 1/(self.__etac+1)
 
         #convergence 
-        # self.__atol = 0.
-        # self.__tol = 0.
+        self.__atol = 0.
+        self.__tol = 1e-3
         self.__stagThreshold = None
 
 
@@ -127,6 +127,7 @@ class continousSingleObjectiveGA :
 
         self.__optiObj = None
         self.__optiX = None
+        self.__optiX_scaled = None
         self.__optiFeasible = False
         self.__success = False
         self.__lastPop = None
@@ -407,7 +408,7 @@ class continousSingleObjectiveGA :
             self.__initial_population_selector = uniform_init_population_lhs
         
         
-    def setConvergenceCriteria(self,stagnationThreshold=None):
+    def setConvergenceCriteria(self,atol=0.,tol=1e-3,stagnationThreshold=None):
         """
         Définition des paramètres de convergence de l'algorithme. d
 
@@ -417,8 +418,8 @@ class continousSingleObjectiveGA :
               amélioration de la meilleure solution. Si None, pas d'évaluation du critère. 
         """
 
-        # self.__atol = atol
-        # self.__tol = tol
+        self.__atol = atol
+        self.__tol = tol
         self.__stagThreshold = stagnationThreshold
 
 
@@ -541,16 +542,21 @@ class continousSingleObjectiveGA :
         """
         dShare = self.__sharingDist
 
-        distance = np.array([np.sqrt(np.sum((population - xj)**2,axis=1)) for xj in population])
-        sharing = (1-distance/dShare)*(distance<dShare)
-        sharingFactor = np.sum(sharing,axis=1)
-        fitness = fitness/sharingFactor
+        if dShare is None : 
+            return fitness
+        elif dShare < 0 : 
+            return fitness
+        else : 
+            distance = np.array([np.sqrt(np.sum((population - xj)**2,axis=1)) for xj in population])
+            sharing = (1-distance/dShare)*(distance<dShare)
+            sharingFactor = np.sum(sharing,axis=1)
+            fitness = fitness/sharingFactor
 
 
-        fmin = fitness.min()
-        fmax = fitness.max()
-        fitness = (fitness-fmin)/(fmax-fmin)
-        return fitness
+            fmin = fitness.min()
+            fmax = fitness.max()
+            fitness = (fitness-fmin)/(fmax-fmin)
+            return fitness
 
     def __selection_tournament(self,population,npop,fitness):
         """
@@ -634,7 +640,7 @@ class continousSingleObjectiveGA :
             feasible_pop = np.concatenate((parents_pop,children_pop[child_filter]), axis=0)
             feasible_obj = np.concatenate( (parents_obj,children_obj[child_filter]) )
         else :
-            feasible_pop =  np.concatenate( (parents_pop,children_pop[child_filter],[self.__optiX]), axis=0)
+            feasible_pop =  np.concatenate( (parents_pop,children_pop[child_filter],[self.__optiX_scaled]), axis=0)
             feasible_obj = np.concatenate( (parents_obj,children_obj[child_filter],[self.__optiObj]) )
 
         npop = len(children_pop)
@@ -673,7 +679,7 @@ class continousSingleObjectiveGA :
             objective = np.concatenate( (feasible_obj,notfeasible_obj[sortedIndex]) )
 
             if self.__constraintMethod == 'penality' : 
-                penality = np.concatenate( (feasible_obj*0.0, notfeasible_penal[sorted_index]) )
+                penality = np.concatenate( (feasible_obj*0.0, notfeasible_penal[sortedIndex]) )
                 penalObj = objective - penality
                 omin = penalObj.min()
                 omax = penalObj.max()
@@ -697,14 +703,16 @@ class continousSingleObjectiveGA :
             maxObj = parents_obj[indexmax]
 
             if self.__optiObj is None :
-                self.__optiX = parents_pop[indexmax]*(self.__xmax-self.__xmin)+self.__xmin
+                self.__optiX_scaled = parents_pop[indexmax]
+                self.__optiX = self.__optiX_scaled*(self.__xmax-self.__xmin)+self.__xmin
                 self.__optiObj = parents_obj[indexmax]
                 better_solution = True
                 self.__optiFeasible = True
 
             else :
                 if self.__optiObj < maxObj :
-                    self.__optiX = parents_pop[indexmax]*(self.__xmax-self.__xmin)+self.__xmin
+                    self.__optiX_scaled = parents_pop[indexmax]
+                    self.__optiX = self.__optiX_scaled*(self.__xmax-self.__xmin)+self.__xmin
                     self.__optiObj = parents_obj[indexmax]
                     better_solution = True
         return better_solution
@@ -720,14 +728,16 @@ class continousSingleObjectiveGA :
 
 
 
-    def __checkConvergenceState(self,generation,last_improvement) : 
-
+    def __checkConvergenceState(self,generation,last_improvement,objective) : 
+        
+        c1 = False
         if self.__stagThreshold is not None : 
             c1 = (generation - last_improvement) > self.__stagThreshold
-        else : 
-            c1 = False
+        
+        c2 = ( np.std(objective) )<= ( self.__atol + self.__tol*np.abs(np.mean(objective)) )
+            
+        converged = (c2 or c1) and self.__optiFeasible
 
-        converged = c1 & self.__optiFeasible
         return converged
 
 
@@ -759,14 +769,15 @@ class continousSingleObjectiveGA :
             population = self.__initial_population
             npop = len(population)
 
-        if self.__sharingDist is None :
-            self.__sharingDist = 1/npop
+        # if self.__sharingDist is None :
+        #     self.__sharingDist = 1/npop
 
         xmin = self.__xmin
         xmax = self.__xmax
         
         self.__optiObj = None
         self.__optiX = None
+        self.__optiX_scaled = None
         self.__optiFeasible = False
         self.__success = False
         self.__constrViolation = []
@@ -827,7 +838,8 @@ class continousSingleObjectiveGA :
                 last_improvement = generation
             
             converged = self.__checkConvergenceState(generation,
-                                                     last_improvement)
+                                                     last_improvement,
+                                                     objective)
 
             if verbose :
                 print('Iteration ',generation+1)
@@ -837,8 +849,8 @@ class continousSingleObjectiveGA :
                 print("SOLUTION CONVERGED")
                 break 
 
-
-        Xarray = children_pop[feasibility]*(xmax-xmin) + xmin
+    
+        Xarray = population*(xmax-xmin) + xmin
         endTime = time.time()
         duration = endTime-startTime
 

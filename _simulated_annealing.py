@@ -25,7 +25,7 @@ class simulatedAnnealing :
         self.__initialTemp = 1e6
         self.__tempDecreaseRatio = 0.99
         if perturbationRatio is None :
-            self.__perturbationRatio = 0.5
+            self.__perturbationRatio = 1.0
         else :   
             self.__perturbationRatio = perturbationRatio
 
@@ -75,9 +75,9 @@ class simulatedAnnealing :
 
 
     def __localPerturbation(self,x):
-        r0 = 2*self.__perturbationRatio*(rd.sample(size=self.__ndof)-0.5)
+        r0 = 2.*self.__perturbationRatio*(rd.sample(size=self.__ndof)-0.5)
         # r0 = self.__perturbationRatio*rd.normal(size=self.__ndof)
-        xnew = np.maximum(np.minimum(x + r0,1),0)
+        xnew = np.maximum(np.minimum(x + r0,1.0),0.0)
         return xnew
 
     def minimize(self,verbose=False,returnDict=False,storeIterValues=False):
