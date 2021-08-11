@@ -1464,16 +1464,21 @@ class continousBiObjective_NSGA():
         """
         dShare = self.__sharingDist
 
-        distance = np.array([np.sqrt(np.sum((population - xj)**2,axis=1)) for xj in population])
-        sharing = (1-distance/dShare)*(distance<dShare)
-        sharingFactor = np.sum(sharing,axis=1)
-        fitness = fitness/sharingFactor
+        if dShare is None : 
+            return fitness
+        elif dShare < 0. : 
+            return fitness
+        else : 
+            distance = np.array([np.sqrt(np.sum((population - xj)**2,axis=1)) for xj in population])
+            sharing = (1-distance/dShare)*(distance<dShare)
+            sharingFactor = np.sum(sharing,axis=1)
+            fitness = fitness/sharingFactor
 
 
-        fmin = fitness.min()
-        fmax = fitness.max()
-        fitness = (fitness-fmin)/(fmax-fmin)
-        return fitness
+            fmin = fitness.min()
+            fmax = fitness.max()
+            fitness = (fitness-fmin)/(fmax-fmin)
+            return fitness
 
     def __uniformMutation(self,population,npop) :
         """
@@ -1784,9 +1789,6 @@ class continousBiObjective_NSGA():
             population = self.__initial_population
             npop = len(population)
 
-        if self.__sharingDist is None :
-            self.__sharingDist = 1/npop
-
         if nfront is None :
             nfront = 2*npop
         self.__nfront = nfront
@@ -1819,6 +1821,7 @@ class continousBiObjective_NSGA():
 
             #Algorithme genetique
 
+            
             fitness = self.__sharingFunction(fitness,population)
 
             selection = self.__selection_function(population,npop,rank_pop,fitness)
