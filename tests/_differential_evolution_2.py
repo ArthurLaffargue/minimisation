@@ -19,12 +19,15 @@ from _minimize_Powell import *
 
 cons = []
 listXde = []
-maxIter = 500
+popsize = 40
+maxIter = 500//40
+convergence = []
 for i in range(10):
         mindict = differential_evolution(f0,
                                         xmin,
                                         xmax,
                                         maxIter=maxIter,
+                                        popsize=popsize,
                                         returnDict=True,
                                         storeIterValues=True
                                 )
@@ -33,6 +36,7 @@ for i in range(10):
 
         Xde = mindict["x"]
         fitnessArray = mindict["fHistory"]
+        convergence.append(fitnessArray)
         listXde.append(Xde)
 
 listXde = np.array(listXde)
@@ -42,7 +46,9 @@ for si in mindict_local :
         print(si," : ",mindict_local[si])
 
 xlocal = mindict_local['x']
+flocal = mindict_local["fmin"]
 
+convergence = [ np.log10(np.abs(np.array(ci,dtype=float)-flocal)/np.abs(flocal)) for ci in convergence ]
 ## Graphe
 
 
@@ -55,7 +61,9 @@ Z[0] = X.flatten()
 Z[1] = Y.flatten()
 W = (f0(Z)).reshape((n,n))
 
-figContour = plt.figure("Contour")
+figContour = plt.figure("Contour",figsize=(12,4))
+
+plt.subplot(121)
 contour = plt.contour(X,Y,W,levels=np.linspace(W.min(),W.max(),25))
 plt.clabel(contour)
 
@@ -78,9 +86,19 @@ plt.xlim(-75,75)
 plt.ylim(-75,75)
 plt.xlabel("x",fontsize=12)
 plt.ylabel("y",fontsize=12)
-plt.title("Problème 'eggholder' : évolution différentielle",fontsize=14)
+plt.title("Fonction 'eggholder'",fontsize=12)
 plt.grid(True)
 plt.legend(fontsize=12)
+
+plt.subplot(122)
+for ci in convergence : 
+        plt.plot(ci,'b-',lw=1.0)
+plt.grid(True)
+plt.title('Convergence de la solution',fontsize=12)
+plt.xlabel("Appels de fonction")
+plt.ylabel("Log10 erreur")
+
+
 plt.savefig("figure.svg",dpi=300)
 
 
