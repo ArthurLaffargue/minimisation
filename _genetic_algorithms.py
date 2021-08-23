@@ -252,7 +252,7 @@ class continousSingleObjectiveGA :
         Parameter : 
 
             - method (str) option : Definition de la methode de selection. 
-                Si method = 'tournament' : selection par tournois. 
+                Si method = 'tournament' : selection par tournois. Recommandé pour les contraintes.
                 Si method = 'SRWRS' : selection par "Stochastic remainder 
                 without replacement selection" [Golberg]
         

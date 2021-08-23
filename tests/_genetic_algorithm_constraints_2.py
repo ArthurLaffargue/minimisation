@@ -26,7 +26,7 @@ ngen = 10000//npop
 
 ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,cons)
 ga_instance.setPenalityParams(constraintAbsTol=0.1,penalityFactor=100,penalityGrowth=1.0)
-ga_instance.setConvergenceCriteria(stagnationThreshold=100,tol=-1)
+ga_instance.setConvergenceCriteria(stagnationThreshold=10000,tol=-1)
 
 
 listXga = []
