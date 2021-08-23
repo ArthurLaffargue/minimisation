@@ -1,10 +1,228 @@
+# coding: utf-8
+
 import numpy as np
 import numpy.random as rd
+from numpy.linalg import norm
 import time
 
-class optimizeMonoAG :
+from _utils import uniform_init_population_lhs,uniform_init_population_random
 
-    def __init__(self,f,xmin,xmax,constraints=[],preprocess_function=None) :
+
+class genetic_operator : 
+    _mutation = {"normal" : "_normalMutation",
+                 "uniform" : "_uniformMutation"}
+
+    _crossover = {"SBX" : "_SBXcrossover",
+                  "uniform" : "_uniformCrossover"}
+    
+    _constraint_handling = ["penality","feasibility"]
+
+    def __init__(self,ndof,mutation_method,mutation_rate,mutation_step,
+                    crossover_method,eta_cross,
+                    sharing_distance,
+                    constraintMethod) : 
+        self.__ndof = ndof
+
+        #Mutation
+        self.__rateMut = mutation_rate
+        if mutation_method in self._mutation : 
+            self.__mutationMethod = mutation_method
+            self.mutationFunction = getattr(self, self._mutation[self.__mutationMethod])
+        else:
+            raise ValueError("Please select a valid mutation strategy")
+        self.__stepMut = mutation_step
+
+        #Crossover
+        if crossover_method in self._crossover : 
+            self.__crossoverMethod = crossover_method
+            self.crossoverFunction = getattr(self, self._crossover[self.__crossoverMethod])
+        else:
+            raise ValueError("Please select a valid crossover strategy")
+        #croissement uniforme       
+        self.__crossFactor = 1+1/(1+eta_cross)
+        #croissement SBX
+        self.__etac = eta_cross
+        self.__alphac = 1/(self.__etac+1)
+
+        #Sharing
+        self.__sharingDist = sharing_distance
+
+        #Contraintes 
+        if constraintMethod in self._constraint_handling : 
+            self.__constraintMethod = constraintMethod
+        else : 
+            raise ValueError("Please select a valid constraint handlling strategy.")
+
+
+    def _uniformCrossover(self,selection,population,npop):
+        """
+        Operateur de croisement barycentrique
+        """
+
+        couples = np.zeros((npop//2,2,self.__ndof))
+        children = np.zeros_like(population)
+        alphaCross = rd.sample((npop//2,self.__ndof))*self.__crossFactor
+        for i in range(npop//2):
+            k = i
+            while k == i :
+                k = rd.randint(0,npop//2-1)
+            couples[i] = [selection[i],selection[k]]
+        children[:npop//2] = alphaCross*couples[:,0] + (1-alphaCross)*couples[:,1]
+        children[npop//2:] = alphaCross*couples[:,1] + (1-alphaCross)*couples[:,0]
+
+        return children
+    
+    def _SBXcrossover(self,selection,population,npop):
+        couples = np.zeros((npop//2,2,self.__ndof))
+        children = np.zeros_like(population)
+        uCross = rd.sample((npop//2,self.__ndof))
+
+        betaCross = np.zeros_like(uCross)
+        uinf_filter = uCross<=0.5
+        betaCross[uinf_filter] = (2*uCross[uinf_filter])**(self.__alphac)
+        betaCross[~uinf_filter] = (2*(1-uCross[~uinf_filter]))**(-self.__alphac)
+
+        for i in range(npop//2):
+            k = i
+            while k == i :
+                k = rd.randint(0,npop//2-1)
+            couples[i] = [selection[i],selection[k]]
+        
+        x1 = couples[:,0]
+        x2 = couples[:,1]
+
+        children[:npop//2] = 0.5*( (1-betaCross)*x1 + (1+betaCross)*x2 )
+        children[npop//2:] = 0.5*( (1+betaCross)*x1 + (1-betaCross)*x2 )
+
+        return children
+
+    def sharingFunction(self,fitness,population):
+        """
+        Operateur de diversite de solution
+        """
+        dShare = self.__sharingDist
+
+        if dShare is None : 
+            return fitness
+        elif dShare < 0 : 
+            return fitness
+        else : 
+            distance = np.array([np.sqrt(np.sum((population - xj)**2,axis=1)) for xj in population])
+            sharing = (1-distance/dShare)*(distance<dShare)
+            sharingFactor = np.sum(sharing,axis=1)
+            fitness = fitness/sharingFactor
+
+
+            fmin = fitness.min()
+            fmax = fitness.max()
+            fitness = (fitness-fmin)/(fmax-fmin)
+            return fitness
+
+
+
+    def _uniformMutation(self,population,npop) :
+        """
+        Operateur de mutation
+        """
+        probaMutation = rd.sample((npop,self.__ndof))
+        deltaX = self.__stepMut*(rd.sample((npop,self.__ndof))-0.5)
+        population = population + deltaX*(probaMutation<=self.__rateMut)
+
+        return population
+
+    def _normalMutation(self,population,npop) :
+        """
+        Operateur de mutation
+        """
+        probaMutation = rd.sample((npop,self.__ndof))
+        deltaX = self.__stepMut*( rd.normal(size=(npop,self.__ndof)) )
+        population = population + deltaX*(probaMutation<=self.__rateMut)
+
+        return population
+
+class continousSingleObjectiveGA(genetic_operator) : 
+
+    _init_population = {'LHS' : '_latinhypercube_init',
+                         'random' : "_random_init"}
+
+    def __init__(self,func,xmin,xmax,constraints=[],preprocess_function=None,
+                    mutation_method="normal",mutation_rate=0.10,mutation_step=0.10,
+                    crossover_method="SBX",eta_cross=1.0,
+                    sharing_distance=None,
+                    atol = 0.,tol = 1e-3,stagThreshold = None,
+                    eqcons_atol = 1e-3,penalityFactor = 1e3,constraintMethod = "penality",
+                    elitisme = True,
+                    init="LHS"
+                    
+                    ) :
+        """
+        Instance de continousSingleObjectiveGA : 
+        
+        Algorithme genetique d'optimisation de fonction mono-objectif à 
+        variables reelles. Recherche d'un optimum global de la fonction f sur
+        les bornes xmin-xmax. 
+
+        Parameters : 
+        
+            - func (callable) : 
+                Fonction objectif a optimiser de la forme f(x) ou x est 
+                l'argument de la fonction de forme scalaire ou array et renvoie 
+                un scalaire ou array.
+
+            - xmin (array like) : 
+                Borne inferieure des variables d'optimisation. 
+
+            - xmax (array like) : 
+                Borne supérieure des variables d'optimisation. Doit être de 
+                même dimension que xmin. 
+
+            - constraints (List of dict) option : 
+                Definition des contraintes dans une liste de dictionnaires. 
+                Chaque dictionnaire contient les champs suivants 
+                    type : str
+                        Contraintes de type egalite 'eq' ou inegalite 'ineq' ; 
+                    fun : callable
+                        La fonction contrainte de la meme forme que func ; 
+
+            - preprocess_function (callable or None) option : 
+                Definition d'une fonction sans renvoie de valeur à executer 
+                avant chaque evaluation de la fonction objectif func ou des 
+                contraintes.
+        
+
+
+        Example : 
+
+            func = lambda x : x[0]**2 + x[1]**2
+            xmin = [-1,-1]
+            xmax = [1,1]
+            ga_instance = continousSingleObjectiveGA(func,
+                                                    xmin,
+                                                    xmax)
+
+
+            resGA = ga_instance.minimize(20,100,verbose=False,returnDict=True)
+        
+            Ouputs : 
+                ############################################################
+
+                AG iterations completed     
+                Success :  True
+                Number of generations :  100
+                Population size :  20
+                Elapsed time : 0.162 s
+                ############################################################
+
+                resGA = {
+                    method  :  Continous Single Objective Genetic Algorithm
+                    optimization  :  minimization
+                    success  :  True
+                    x  :  [-0.00222156  0.00380852] #may vary
+                    f  :  1.9440156259914855e-05    #may vary
+                    constrViolation  :  []
+                    }
+
+        """
 
         self.__xmin = np.minimum(xmin,xmax)
         self.__xmax = np.maximum(xmin,xmax)
@@ -12,111 +230,357 @@ class optimizeMonoAG :
         self.__ndof = len(self.__xmin)
 
         self.__preProcess = preprocess_function
-        self.__function = f
+        self.__function = func
         self.__constraints = constraints
 
-        self.__nPreSelected = 2 #Nombre d'individus preselectionne pour tournois
-        self.__stepMut = 0.15
-        self.__rateMut = 0.25
-        self.__crossFactor = 1.25
-        self.__constraintAbsTol = 1e-6
-        self.__penalityFactor = 1000
-        self.__penalityGrowth = 1.0
-        self.__sharingDist = None
-        self.__constraintMethod = "penality" #"feasibility"
-        self.__elitisme = True
+        #Operateurs genetiques
+        super().__init__(self.__ndof,
+                        mutation_method,mutation_rate,mutation_step,
+                        crossover_method,eta_cross,
+                        sharing_distance,
+                        constraintMethod)
+        self.selectionFunction = self.__selection_tournament
 
+        #convergence 
+        self.__atol = atol
+        self.__tol = tol
+        self.__stagThreshold = stagThreshold
 
-        self.__selection_function = self.__selection_tournament
-
-    def setPreSelectNumber(self,nbr_preselected):
-        self.__nPreSelected = nbr_preselected
-
-    def setStepMut(self,step_mutation):
-        self.__stepMut = step_mutation
-
-    def setCrossFactor(self,mutation_rate):
-        self.__rateMut = mutation_rate
-
-    def setCrossFactor(self,crossover_factor):
-        self.__crossFactor = crossover_factor
-
-    def setSharingDist(self,sharingDist) :
-        self.__sharingDist = sharingDist
-
-    def setSelectionMethod(self,method="tournament"):
-        if method == "SRWRS" :
-            self.__selection_function = self.__selection_SRWRS
-        if method == "tournament" :
-            self.__selection_function = self.__selection_tournament
-
-    def setConstraintMethod(self,method="penality"):
-        if method == "feasibility" or method == "penality" :
-            self.__constraintMethod = method
-
-    def setPenalityParams(self,constraintAbsTol=1e-6,penalityFactor=1,penalityGrowth=1.01):
-        self.__constraintAbsTol = constraintAbsTol
+        self.__constraintMethod = self._genetic_operator__constraintMethod
+        self.__constraintAbsTol = eqcons_atol
         self.__penalityFactor = penalityFactor
-        self.__penalityGrowth = penalityGrowth
-        self.__constraintMethod = "penality"
 
-    def redefine_objective(self,f):
-        self.__function = f
-
-    def redefine_constraints(self,constraints=[]):
-        self.__constraints = constraints
-
-    def setElitisme(self,elitisme=True):
         self.__elitisme = elitisme
 
-    def optimize(self,npop,ngen,verbose=True):
 
+        #Initialisation de population
+        if init in self._init_population :
+            self.__initial_population_selector = getattr(self, self._init_population[init])
+            self.__initial_population = None 
+        else:
+            raise ValueError("Please select a valid initialization method")
+
+
+        #init solver
+        self.__sign_factor = 1.0
+        self.__init_solver()
+
+
+
+    def __init_solver(self):
+        
+        self.__optiObj = None
+        self.__optiX = None
+        self.__optiX_scaled = None
+        self.__optiFeasible = False
+        self.__optiPenality = None
+
+        self.__success = False
+        self.__lastPop = None
+        self.__constrViolation = []
+        self.__statOptimisation = None
+
+    def _latinhypercube_init(self,shape) :
+        return uniform_init_population_lhs(shape)
+
+    def _uniform_init(self) :
+        return uniform_init_population_random(self.__popshape)
+
+    def define_initial_population(self,xstart=None,selector='LHS'):
+        """
+        Definition d'une population initiale. 
+
+        Parameter : 
+
+            - xstart (array(npop,ndof)) or None option : 
+                xstart est la solution initiale. Ses dimensions doivent etre de
+                (npop,ndof). 
+                npop la taille de la population et ndof le nombre de variable
+                (degrees of freedom).
+            
+            - selector (string) option : 
+                si pas de xstart definit, selection aléatoire : 
+                    'LHS' : Latin Hypercube Selector, variante meilleure que uniforme ; 
+                    'random' : loi uniforme ; 
+                    sinon 'LHS' ; 
+        """
+        if xstart is not None : 
+            x = np.array(xstart)
+            npop,ndof = x.shape
+            if ndof != self.__ndof : 
+                raise ValueError("The size of initial population is not corresponding to bounds size")
+
+            xpop = np.maximum(np.minimum((x-self.__xmin)/(self.__xmax-self.__xmin),1.0),0.0)
+            if npop%2 != 0 : 
+                xpop = np.insert(xpop,0,0.5,axis=0)
+            
+            self.__initial_population = xpop
+        
+        else : 
+            if selector in self._init_population :
+                self.__initial_population_selector = getattr(self, self._init_population[selector])
+                self.__initial_population = None 
+            else:
+                raise ValueError("Please select a valid initialization method")
+
+
+    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
+    ###                         OPERATEURS
+    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
+    def __evaluate_function_and_constraints(self,xi):
+        """
+        Evaluate the problem on xi point
+        """
+        if self.__preProcess is not None :
+            self.__preProcess(xi)
+        objective = self.__function(xi)*self.__sign_factor
+        constrViolation = []
+        feasibility = True
+        penality = 0.0
+        for c in self.__constraints : 
+            type = c["type"]
+            g = c['fun']
+            gi = g(xi)
+
+            if type == 'strictIneq'  :
+                feasibility &= gi>0
+                constrViol = np.minimum(gi,0.0)
+                constrViolation.append(abs(constrViol))
+                penality += constrViol**2
+
+            if type == 'ineq' :
+                feasibility &= gi>=0
+                constrViol = np.minimum(gi,0.0)
+                constrViolation.append(abs(constrViol))
+                penality += constrViol**2
+
+            if type == 'eq'  :
+                constrViol = np.abs(gi)
+                feasibility &= constrViol<=self.__constraintAbsTol
+                constrViolation.append(abs(constrViol))
+                penality += constrViol**2
+        penalObjective = objective - self.__penalityFactor*penality
+        return objective,penalObjective,feasibility,penality,constrViolation
+
+    def __fitness_and_feasibility(self,Xarray,objective,npop) :
+        """
+        Evaluation de la fonction objectif et des contraintes
+        """
+
+        feasibility = np.ones(npop,dtype=bool)
+        penality = np.zeros(npop,dtype=float)
+        penalObjective = np.zeros(npop,dtype=float)
+        constraintViol = []
+
+        for i,xi, in enumerate(Xarray) :
+            (obj_i,
+            pobj_i,
+            feas_i,
+            penal_i,
+            cviol_i) = self.__evaluate_function_and_constraints(xi)
+
+            objective[i] = obj_i
+            penalObjective[i] = pobj_i
+            feasibility[i] = feas_i
+            penality[i] = penal_i
+            constraintViol.append(cviol_i)
+
+        if self.__constraintMethod == 'penality' : 
+            omin = penalObjective.min()
+            omax = penalObjective.max()
+            fitness = (penalObjective-omin)/(omax-omin)
+
+        if self.__constraintMethod == "feasibility" :
+            omin = objective.min()
+            omax = objective.max()
+            fitness = (objective-omin)/(omax-omin)
+        
+        if not( feasibility.all() ) :
+            constraintViol = np.array(constraintViol)
+            distviol = norm(constraintViol/constraintViol.max(axis=0),axis=1)
+        else : 
+            distviol = np.zeros(npop,dtype=float)
+        return objective,fitness,feasibility,penality,distviol
+
+    def __constraints_ranking(self,fitness,distviol,feasibility):
+        if feasibility.all() and self.__constraintMethod == "penality": 
+            return fitness[:]
+        else : 
+            ranking_values = np.array( list(zip(fitness,-distviol)) ,
+                                        dtype=[('fitness', float), ('dviol', float)])
+            ranking = np.argsort(ranking_values,order=("dviol","fitness"))
+            return ranking
+
+    def __selection_tournament(self,population,npop,fitness,distviol,feasibility):
+        """
+        Operateur de selection par tournois
+        """
+        rank = self.__constraints_ranking(fitness,distviol,feasibility)
+        selection = np.zeros((npop//2,self.__ndof))
+        for i in range(npop//2):
+            indices = rd.choice(npop-1,2)
+            selection[i] = population[indices[np.argmax(rank[indices])]]
+        return selection
+
+    def __selection_elitisme(self,elite_pop,elite_obj,children_pop,children_obj,children_dviol,children_feasible,npop) :
+        """
+        Operateur elitisme
+        """
+        nelite = elite_obj.shape[0]
+        elite_feasible = np.ones(nelite,dtype=bool)
+        elite_distviol = np.zeros(nelite,dtype=float)
+
+        if self.__optiX is None :
+            pop = np.concatenate((elite_pop,children_pop), axis=0)
+            obj = np.concatenate( (elite_obj,children_obj) )
+            feasible = np.concatenate( (elite_feasible,children_feasible) )
+            distviol = np.concatenate( (elite_distviol,children_dviol) )
+        else :
+            pop =  np.concatenate( (elite_pop,children_pop,[self.__optiX_scaled]), axis=0)
+            obj = np.concatenate( (elite_obj,children_obj,[self.__optiObj]) )
+            feasible = np.concatenate( (elite_feasible,children_feasible,[self.__optiFeasible]) )
+            distviol = np.concatenate( (elite_distviol,children_dviol,[0.0]) )
+
+        if self.__constraintMethod == 'feasibility' :
+            rank = self.__constraints_ranking(obj,distviol,feasible)
+            selection = rank < npop
+            population = pop[selection]
+            objective = obj[selection]
+            elite_pop = pop[selection&feasible]
+            elite_obj = obj[selection&feasible]
+
+            omin,omax = objective.min(),objective.max()
+            fitness = (objective-omin)/(omax-omin)
+
+        elif self.__constraintMethod == 'penality' :
+            rank = np.argsort(obj)
+            selection = rank < npop
+            population = pop[selection]
+            objective = obj[selection]
+            elite_pop = pop[selection&feasible]
+            elite_obj = obj[selection&feasible]
+
+            omin,omax = objective.min(),objective.max()
+            fitness = (objective-omin)/(omax-omin)
+
+        
+        return population,objective,elite_pop,elite_obj,fitness
+
+    def __archive_solution(self,population,objective,penality,feasibility):
+        """
+        Archive la solition de meilleur objectif
+        """
+        better_solution = False
+        if self.__optiObj is None :
+            selection = np.ones_like(feasibility,dtype=bool)
+        else :
+            selection = (penality <= self.__optiPenality)&(objective >= self.__optiObj) 
+            
+
+        if selection.any() : 
+            indexmax = np.argmax(objective[selection])
+
+            self.__optiX_scaled = population[selection][indexmax]
+            self.__optiX = self.__optiX_scaled*(self.__xmax-self.__xmin)+self.__xmin
+            self.__optiObj = objective[selection][indexmax]
+            self.__optiFeasible = feasibility[selection][indexmax]
+            self.__optiPenality = penality[selection][indexmax]
+
+            better_solution = True
+            
+        return better_solution
+
+    def __archive_details(self,generation):
+        """
+        Archive une liste de la meilleur solution par iteration
+        """
+        if self.__optiObj is not None : 
+            self.__statOptimisation[generation] = self.__optiObj*self.__sign_factor
+        else : 
+            self.__statOptimisation[generation] = None
+
+    def __checkConvergenceState(self,generation,last_improvement,objective) : 
+        
+        c1 = False
+        if self.__stagThreshold is not None : 
+            c1 = (generation - last_improvement) > self.__stagThreshold
+        
+        c2 = ( np.std(objective) )<= ( self.__atol + self.__tol*np.abs(np.mean(objective)) )
+            
+        converged = (c2 or c1) and self.__optiFeasible
+
+        return converged
+    
+
+
+    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
+    ###                         ALGORITHME
+    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
+
+    def __runOptimization(self,npop,ngen,verbose=True):
+        """
+        Optimisation
+        """
 
         ## Initialisation
-        if not(self.__elitisme) :
-            self.__constraintMethod = "penality"
+        
+
+        # if not(self.__elitisme) :
+        #     self.__constraintMethod = "penality"
+
 
         if npop%2 != 0 :
             npop += 1
+        ndof = self.__ndof
 
-        if self.__sharingDist is None :
-            self.__sharingDist = 1/npop
+        if self.__initial_population is None : 
+            population = self.__initial_population_selector((npop,ndof)) #population initiale
+        else : 
+            population = self.__initial_population
+            npop = len(population)
+
+        # if self.__sharingDist is None :
+        #     self.__sharingDist = 1/npop
 
         xmin = self.__xmin
         xmax = self.__xmax
-        ndof = self.__ndof
-
-
+        
         self.__optiObj = None
         self.__optiX = None
+        self.__optiX_scaled = None
+        self.__optiFeasible = False
+        self.__success = False
+        self.__lastPop = None
+        last_improvement = 0
 
-        self.__statOptimisation  = np.zeros(ngen)
+        self.__statOptimisation  = np.full(ngen,None,dtype=float)
         objective = np.zeros(npop)
 
 
         startTime = time.time()
 
-        population = rd.sample((npop,ndof)) #population initiale
         Xarray = population*(xmax-xmin) + xmin
-        objective,fitness,feasibility,penality = self.__fitness_and_feasibility(Xarray,objective,npop)
+        objective,fitness,feasibility,penality,distviol = self.__fitness_and_feasibility(Xarray,objective,npop)
         parents_pop = population[feasibility]
         parents_obj = objective[feasibility]
         for generation in range(ngen):
 
             #Algorithme genetique
 
-            fitness = self.__sharingFunction(fitness,population)
+            fitness = self.sharingFunction(fitness,population)
 
-            selection = self.__selection_function(population,npop,fitness)
+            selection = self.selectionFunction(population,npop,fitness,distviol,feasibility)
 
-            children_pop = self.__barycenterCrossover(selection,population,npop)
+            children_pop = self.crossoverFunction(selection,population,npop)
 
-            children_pop = self.__mutation_delta(children_pop,npop)
+            children_pop = np.minimum(1.0,np.maximum(0.0,children_pop))
+
+            children_pop = self.mutationFunction(children_pop,npop)
 
             children_pop = np.minimum(1.0,np.maximum(0.0,children_pop))
 
             Xarray = children_pop*(xmax-xmin) + xmin
-            children_obj,fitness,feasibility,penality = self.__fitness_and_feasibility(Xarray,objective,npop)
+            children_obj,fitness,feasibility,penality,distviol = self.__fitness_and_feasibility(Xarray,objective,npop)
 
             #Elistisme
             if self.__elitisme :
@@ -128,663 +592,198 @@ class optimizeMonoAG :
                                                     parents_obj,
                                                     children_pop,
                                                     children_obj,
-                                                    penality,
-                                                    feasibility)
+                                                    distviol,
+                                                    feasibility,
+                                                    npop)
             else :
-                population = children_pop
-                objective = children_obj
+                population = children_pop[:]
+                objective = children_obj[:]
 
 
 
-            self.__archive_solution(children_pop[feasibility],children_obj[feasibility])
+            better_sol = self.__archive_solution(children_pop,children_obj,penality,feasibility)
             self.__archive_details(generation)
 
+            if better_sol : 
+                last_improvement = generation
+            
+            converged = self.__checkConvergenceState(generation,
+                                                     last_improvement,
+                                                     objective)
+
             if verbose :
                 print('Iteration ',generation+1)
 
 
-
-
-
-        Xarray = children_pop[feasibility]*(xmax-xmin) + xmin
-        endTime = time.time()
-        duration = endTime-startTime
-
-        ##MESSAGES
-
-        print('\n'*2+'#'*60+'\n')
-        print('AG iterations completed')
-        print('Number of generations : ',ngen)
-        print('Population size : ',npop)
-        print('Elapsed time : %.3f s'%duration)
-
-        print('#'*60+'\n')
-
-        self.__lastPop = Xarray
-
-
-        return self.__optiX,self.__optiObj
-
-# --------------------------------------------------------------------------- #
-    def __fitness_and_feasibility(self,Xarray,objective,npop) :
-
-        feasibility = np.ones(npop,dtype=bool)
-        penality = np.zeros(npop,dtype=float)
-        for i,xi, in enumerate(Xarray) :
-
-            if self.__preProcess is not None :
-                self.__preProcess(xi)
-
-            objective[i] = self.__function(xi)
-
-            for c in self.__constraints :
-                type = c["type"]
-                g = c['fun']
-                gi = g(xi)
-
-                if type == 'strictIneq'  :
-                    feasibility[i] *= (gi>0)
-                    penality[i] += (gi*(gi<=0.0))**2
-
-                if type == 'ineq' :
-                    feasibility[i] *= (gi>=0)
-                    penality[i] += np.minimum(gi,0.0)**2
-
-                if type == 'eq'  :
-                    feasibility[i] *= (np.abs(gi)<=self.__constraintAbsTol)
-                    penality[i] += gi**2
-
-
-        if self.__constraintMethod == "penality" :
-            penality = self.__penalityFactor*penality
-            penalObjective = objective - penality
-        else :
-            penalObjective = objective
-        omin = penalObjective.min()
-        omax = penalObjective.max()
-        fitness = (penalObjective-omin)/(omax-omin)
-        if self.__constraintMethod == "feasibility" :
-            fitness *= feasibility
-        self.__penalityFactor *= self.__penalityGrowth
-        return objective,fitness,feasibility,penality
-
-
-
-    def __barycenterCrossover(self,selection,population,npop):
-
-        couples = np.zeros((npop//2,2,self.__ndof))
-        children = np.zeros_like(population)
-        alphaCross = rd.sample((npop//2,self.__ndof))*self.__crossFactor
-        for i in range(npop//2):
-            k = i
-            while k == i :
-                k = rd.randint(0,npop//2-1)
-            couples[i] = [selection[i],selection[k]]
-        children[:npop//2] = alphaCross*couples[:,0] + (1-alphaCross)*couples[:,1]
-        children[npop//2:] = alphaCross*couples[:,1] + (1-alphaCross)*couples[:,0]
-
-        return population
-
-
-    def __sharingFunction(self,fitness,population):
-        dShare = self.__sharingDist
-
-        distance = np.array([np.sqrt(np.sum((population - xj)**2,axis=1)) for xj in population])
-        sharing = (1-distance/dShare)*(distance<dShare)
-        sharingFactor = np.sum(sharing,axis=1)
-        fitness = fitness/sharingFactor
-
-
-        fmin = fitness.min()
-        fmax = fitness.max()
-        fitness = (fitness-fmin)/(fmax-fmin)
-        return fitness
-
-    def __selection_tournament(self,population,npop,fitness):
-        ndof = self.__ndof
-        selection = np.zeros((npop//2,ndof))
-        for i in range(npop//2):
-            indices = rd.choice(npop-1,self.__nPreSelected)
-            selection[i] = population[indices[np.argmax(fitness[indices])]]
-        return selection
-
-    def __selection_SRWRS(self,population,npop,fitness) :
-        ndof = self.__ndof
-        r_array = fitness/fitness.mean()
-        index_list = []
-        prob_list = []
-        for i,ri in enumerate(r_array):
-            eri = int(ri)
-            index_list += [i]*(eri+1)
-            prob_list += [ri-eri]*(eri+1)
-
-        prob_list = np.array(prob_list)/np.sum(prob_list)
-        index_list = np.array(index_list,dtype=int)
-        index_select = rd.choice(index_list,npop//2,p=prob_list)
-        selection = population[index_select]
-        return selection
-
-
-    def __mutation_delta(self,population,npop) :
-
-        probaMutation = rd.sample((npop,self.__ndof))
-        deltaX = self.__stepMut*(rd.sample((npop,self.__ndof))-0.5)
-        population = population + deltaX*(probaMutation<=self.__rateMut)
-        return population
-
-
-    def __selection_elitisme(self,parents_pop,parents_obj,children_pop,children_obj,children_penal,feasibility) :
-
-        if self.__optiX is None :
-            feasible_pop = np.array([pi for pi in parents_pop]+[ci for ci in children_pop[feasibility]])
-            feasible_obj = np.array([pi for pi in parents_obj]+[ci for ci in children_obj[feasibility]])
-        else :
-            feasible_pop = np.array([pi for pi in parents_pop]+[ci for ci in children_pop[feasibility]]+[self.__optiX])
-            feasible_obj = np.array([pi for pi in parents_obj]+[ci for ci in children_obj[feasibility]]+[self.__optiObj])
-
-        npop = len(children_pop)
-        nfeasible = len(feasible_pop)
-
-
-
-
-
-        if nfeasible >= npop :
-            omin,omax = feasible_obj.min(),feasible_obj.max()
-            fitness = (feasible_obj-omin)/(omax-omin)
-            fitness = self.__sharingFunction(fitness,feasible_pop)
-            sorted_index = np.argsort(fitness)[::-1]
-            population = feasible_pop[sorted_index[:npop]]
-            objective = feasible_obj[sorted_index[:npop]]
-
-
-            omin = objective.min()
-            omax = objective.max()
-            fitness = (objective-omin)/(omax-omin)
-
-            return population,objective,population,objective,fitness
-
-
-        else :
-            nextend = npop-nfeasible
-            notfeasible = np.logical_not(feasibility)
-            notfeasible_pop = children_pop[notfeasible]
-            notfeasible_obj = children_obj[notfeasible]
-            notfeasible_penal = children_penal[notfeasible]
-            penalObj = notfeasible_obj - notfeasible_penal
-            sortedIndex = np.argsort(penalObj)[::-1]
-            sortedIndex = sortedIndex[:nextend]
-
-            population = np.array([xi for xi in feasible_pop]+[xi for xi in notfeasible_pop[sortedIndex]])
-            objective = np.array([xi for xi in feasible_obj]+[xi for xi in notfeasible_obj[sortedIndex]])
-            penality = np.array([0.0 for xi in feasible_obj]+[xi for xi in notfeasible_penal[sortedIndex]])
-            penalObj = objective - penality
-            omin = penalObj.min()
-            omax = penalObj.max()
-            fitness = (penalObj-omin)/(omax-omin)
-
-
-
-            return population,penalObj,feasible_pop,feasible_obj,fitness
-
-
-    def __archive_solution(self,parents_pop,parents_obj):
-        if len(parents_pop) > 0 :
-            indexmax = np.argmax(parents_obj)
-            maxObj = parents_obj[indexmax]
-
-            if self.__optiObj is None :
-                self.__optiX = parents_pop[indexmax]*(self.__xmax-self.__xmin)+self.__xmin
-                self.__optiObj = parents_obj[indexmax]
-
-            else :
-                if self.__optiObj < maxObj :
-                    self.__optiX = parents_pop[indexmax]*(self.__xmax-self.__xmin)+self.__xmin
-                    self.__optiObj = parents_obj[indexmax]
-
-    def __archive_details(self,generation):
-
-        self.__statOptimisation[generation] = self.__optiObj
-
-
-    def getLastPopulation(self) : return self.__lastPop
-
-    def getStatOptimisation(self): return self.__statOptimisation
-
-
-
-
-
-class optiBiAG :
-
-    def __init__(self,f1,f2,xmin,xmax,constraints=[],preprocess_function=None) :
-
-        self.__xmin = np.minimum(xmin,xmax)
-        self.__xmax = np.maximum(xmin,xmax)
-
-        self.__ndof = len(self.__xmin)
-
-        self.__preProcess = preprocess_function
-        self.__function1 = f1
-        self.__function2 = f2
-        self.__constraints = constraints
-
-        self.__nPreSelected = 2 #Nombre d'individus preselectionne pour tournois
-        self.__stepMut = 0.10
-        self.__rateMut = 0.25
-        self.__crossFactor = 1.35
-        self.__sharingDist = None
-
-        self.__constraintAbsTol = 1e-6
-        self.__penalityFactor = 1e6
-        self.__constraintMethod = "penality"
-
-    def setPreSelectNumber(self,nbr_preselected):
-        self.__nPreSelected = nbr_preselected
-
-    def setStepMut(self,step_mutation):
-        self.__stepMut = step_mutation
-
-    def setCrossFactor(self,mutation_rate):
-        self.__rateMut = mutation_rate
-
-    def setCrossFactor(self,crossover_factor):
-        self.__crossFactor = crossover_factor
-
-    def setSharingDist(self,sharingDist) :
-        self.__sharingDist = sharingDist
-
-    def setConstraintMethod(self,method="feasibility"):
-        if method == "feasibility" or method == "penality" :
-            self.__constraintMethod = method
-
-    def setPenalityParams(self,constraintAbsTol=1e-6,penalityFactor=1e6,penalityGrowth=1.0):
-        self.__constraintAbsTol = constraintAbsTol
-        self.__penalityFactor = penalityFactor
-        self.__constraintMethod = "penality"
-
-    def optimize(self,npop,ngen,nfront=None,verbose=True):
-
-
-        ## Initialisation
-        if npop%2 != 0 :
-            npop += 1
-
-        if self.__sharingDist is None :
-            self.__sharingDist = 1/npop
-
-        if nfront is None :
-            nfront = 3*npop
-        self.__nfront = nfront
-
-        xmin = self.__xmin
-        xmax = self.__xmax
-        ndof = self.__ndof
-
-        objective1 = np.zeros(npop)
-        objective2 = np.zeros(npop)
-
-        startTime = time.time()
-
-        population = rd.sample((npop,ndof)) #population initiale
+            if converged : 
+                print("SOLUTION CONVERGED")
+                break 
+
+    
         Xarray = population*(xmax-xmin) + xmin
-
-        (objective1,
-        objective2,
-        feasibility) = self.__evaluate_objectives_and_constraints(Xarray,
-                                                                objective1,
-                                                                objective2,
-                                                                npop)
-        rank_pop = self.__fast_non_dominated_sort(objective1,objective2,None)
-        fitness = self.__crowning_distance(objective1,objective2,rank_pop)
-        parents_pop = population[feasibility]
-        parents_obj1 = objective1[feasibility]
-        parents_obj2 = objective2[feasibility]
-
-        for generation in range(ngen):
-
-            #Algorithme genetique
-
-            fitness = self.__sharingFunction(fitness,population)
-
-            selection = self.__selection_tournament(population,npop,rank_pop,fitness)
-
-            children_pop = self.__barycenterCrossover(selection,population,npop)
-
-            children_pop = self.__mutation_delta(children_pop,npop)
-
-            children_pop = np.minimum(1.0,np.maximum(0.0,children_pop))
-
-            Xarray = children_pop*(xmax-xmin) + xmin
-            (objective1,
-            objective2,
-            feasibility) = self.__evaluate_objectives_and_constraints(Xarray,
-                                                        objective1,
-                                                        objective2,
-                                                        npop)
-
-            #Elistisme
-            (population,
-            objective1,
-            objective2,
-            rank_pop,
-            fitness,
-            parents_pop,
-            parents_obj1,
-            parents_obj2) = self.__selection_elitisme(parents_pop,
-                                                parents_obj1,
-                                                parents_obj2,
-                                                children_pop,
-                                                objective1,
-                                                objective2,
-                                                feasibility)
-
-
-
-            # self.__archive_solution(parents_pop,parents_obj1,parents_obj2)
-            # self.__archive_details(generation)
-
-            if verbose :
-                print('Iteration ',generation+1)
-
-
-
-
-
-        Xarray = parents_pop*(xmax-xmin) + xmin
         endTime = time.time()
         duration = endTime-startTime
 
         ##MESSAGES
+        if self.__optiX is not None : 
+            self.__success = self.__optiFeasible
 
         print('\n'*2+'#'*60+'\n')
         print('AG iterations completed')
-        print('Number of generations : ',ngen)
+        print("Success : ", self.__success)
+        print('Number of generations : ',generation+1)
         print('Population size : ',npop)
         print('Elapsed time : %.3f s'%duration)
 
         print('#'*60+'\n')
 
         self.__lastPop = Xarray
-
-
-        return parents_pop,parents_obj1,parents_obj2
-
-# --------------------------------------------------------------------------- #
-
-    def __fast_non_dominated_sort(self,x1,x2,selection_size=None):
-        size_pop = len(x1)
-        if selection_size is None :
-            selection_size = size_pop
-        index_R =  np.array(range(size_pop),dtype=int)
-        Fi = []
-        list_Sr = []
-        list_nr = []
-        rank_R = np.ones_like(index_R,dtype=int)*-1
-
-        for r,(x1r,x2r) in enumerate(zip(x1,x2)) :
-
-            dominated_test = (x1r<x1)&(x2r<x2)
-            dominance_test = (x1r>x1)&(x2r>x2)
-
-
-            nr = np.count_nonzero(dominated_test) #number of dominated solutions
-            Sr = [q for q in range(size_pop) if dominance_test[q]]
-
-            list_Sr.append(Sr)
-            list_nr.append(nr)
-
-            if nr == 0 :
-                rank_R[r] = 1
-                Fi.append(r)
-
-
-        i = 1
-        size = len(Fi)
-        while size > 0 and size<selection_size:
-            Q = []
-            for r in Fi :
-                Sr = list_Sr[r]
-                for q in Sr :
-                    nq = list_nr[q]
-                    nq = nq - 1
-                    list_nr[q] = nq
-                    if nq == 0 :
-                        rank_R[q] = i+1
-                        Q.append(q)
-            i += 1
-            Fi = Q
-            size += len(Fi)
-
-        non_ranked_sol = rank_R < 1
-        rank_R[non_ranked_sol] = max(rank_R)+1
-
-        return rank_R
-
-    def __crowning_distance(self,x1,x2,rank_R):
-        max_rank = max(rank_R)
-        crowning_dist = np.zeros_like(x1,dtype=float)
-        x1min,x1max = x1.min(),x1.max()
-        x2min,x2max = x2.min(),x2.max()
-
-        for rank_k in range(1,max_rank+1):
-            index_sol = rank_R == rank_k
-            x1_k = x1[index_sol]
-            x2_k = x2[index_sol]
-            distance_k = np.zeros_like(x1_k,dtype=float)
-
-            sortindex = np.argsort(x1_k)
-            x1_k = x1_k[sortindex]
-            distance_k[sortindex[1:-1:]] = (x1_k[2:] - x1_k[:-2])/(x1max-x1min)
-            distance_k[sortindex[0]] = 1.0
-            distance_k[sortindex[-1]] = 1.0
-
-            sortindex = np.argsort(x2_k)
-            x2_k = x2_k[sortindex]
-            distance_k[sortindex[1:-1:]] += (x2_k[2:] - x2_k[:-2])/(x2max-x2min)
-            distance_k[sortindex[0]] += 1.0
-            distance_k[sortindex[-1]] += 1.0
-
-            crowning_dist[index_sol] = distance_k
-
-        dist_min,dist_max = crowning_dist.min(),crowning_dist.max()
-        return (crowning_dist-dist_min)/(dist_max-dist_min)
-
-
-
-
-    def __evaluate_objectives_and_constraints(self,Xarray,objective1,objective2,npop) :
-
-        feasibility = np.ones(npop,dtype=bool)
-        penality = np.zeros(npop,dtype=float)
-        for i,xi, in enumerate(Xarray) :
-
-            if self.__preProcess is not None :
-                self.__preProcess(xi)
-
-            objective1[i] = self.__function1(xi)
-            objective2[i] = self.__function2(xi)
-
-            for c in self.__constraints :
-                type = c["type"]
-                g = c['fun']
-                gi = g(xi)
-
-                if type == 'strictIneq'  :
-                    feasibility[i] *= (gi>0)
-                    penality[i] += (gi*(gi<=0.0))**2
-
-                if type == 'ineq' :
-                    feasibility[i] *= (gi>=0)
-                    penality[i] += np.minimum(gi,0.0)**2
-
-                if type == 'eq'  :
-                    feasibility[i] *= (np.abs(gi)<=self.__constraintAbsTol)
-                    penality[i] += gi**2
-
-
-        if self.__constraintMethod == "penality" :
-            penality = self.__penalityFactor*penality
-            objective1 = objective1 - penality
-            objective2 = objective2 - penality
-        o1min,o2min = objective1.min(),objective2.min()
-        if self.__constraintMethod == "feasibility" :
-            objective1[np.logical_not(feasibility)] = o1min - 1
-            objective2[np.logical_not(feasibility)] = o2min - 1
-
-        return objective1,objective2,feasibility
-
-
-
-    def __barycenterCrossover(self,selection,population,npop):
-
-        couples = np.zeros((npop//2,2,self.__ndof))
-        children = np.zeros_like(population)
-        alphaCross = rd.sample((npop//2,self.__ndof))*self.__crossFactor
-        for i in range(npop//2):
-            k = i
-            while k == i :
-                k = rd.randint(0,npop//2-1)
-            couples[i] = [selection[i],selection[k]]
-        children[:npop//2] = alphaCross*couples[:,0] + (1-alphaCross)*couples[:,1]
-        children[npop//2:] = alphaCross*couples[:,1] + (1-alphaCross)*couples[:,0]
-
-        return population
-
-
-
-
-    def __sharingFunction(self,fitness,population):
-        dShare = self.__sharingDist
-
-        distance = np.array([np.sqrt(np.sum((population - xj)**2,axis=1)) for xj in population])
-        sharing = (1-distance/dShare)*(distance<dShare)
-        sharingFactor = np.sum(sharing,axis=1)
-        fitness = fitness/sharingFactor
-
-
-        fmin = fitness.min()
-        fmax = fitness.max()
-        fitness = (fitness-fmin)/(fmax-fmin)
-        return fitness
-
-    def __selection_tournament(self,population,npop,rank_K,fitness):
-        ndof = self.__ndof
-        selection = np.zeros((npop//2,ndof))
-        for i in range(npop//2):
-            (index_1,index_2) = rd.choice(npop-1,2)
-            if rank_K[index_1]<rank_K[index_2] :
-                select = index_1
-            elif rank_K[index_1]>rank_K[index_2] :
-                select = index_2
-            elif fitness[index_1] >= fitness[index_2] :
-                select = index_1
-            else :
-                select = index_2
-            selection[i] = population[select]
-        return selection
-
-
-    def __mutation_delta(self,population,npop) :
-
-        probaMutation = rd.sample((npop,self.__ndof))
-        deltaX = self.__stepMut*(rd.sample((npop,self.__ndof))-0.5)
-        population = population + deltaX*(probaMutation<=self.__rateMut)
-        return population
-
-
-    def __selection_elitisme(self,parents_pop,
-                                  parents_obj1,
-                                  parents_obj2,
-                                  children_pop,
-                                  children_obj1,
-                                  children_obj2,
-                                  feasibility) :
-
-
-        feasible_pop = np.array([pi for pi in parents_pop]+[ci for ci in children_pop[feasibility]])
-        feasible_obj1 = np.array([pi for pi in parents_obj1]+[ci for ci in children_obj1[feasibility]])
-        feasible_obj2 = np.array([pi for pi in parents_obj2]+[ci for ci in children_obj2[feasibility]])
-
-        npop = len(children_pop)
-        nfeasible = len(feasible_pop)
-        # omin1,omax1 = feasible_obj1.min(),feasible_obj1.max()
-        # omin2,omax2 = feasible_obj2.min(),feasible_obj2.max()
-
-
-
-
-        if nfeasible >= npop :
-
-            rank_pop = self.__fast_non_dominated_sort(feasible_obj1,feasible_obj2,npop)
-            fitness = self.__crowning_distance(feasible_obj1,feasible_obj2,rank_pop)
-
-
-
-            values = list(zip(rank_pop,-fitness))
-            dtype = [('rank',int),('crowning',float)]
-            evaluation_array = np.array(values,dtype=dtype)
-            sorted_index = np.argsort(evaluation_array,order=["rank","crowning"])
-
-            population = feasible_pop[sorted_index][:npop]
-            objective1 = feasible_obj1[sorted_index][:npop]
-            objective2 = feasible_obj2[sorted_index][:npop]
-            rank_pop = rank_pop[sorted_index]
-            fitness = self.__crowning_distance(objective1,objective2,rank_pop[:npop])
-
-            parents_pop = feasible_pop[sorted_index][rank_pop==1]
-            parents_obj1 = feasible_obj1[sorted_index][rank_pop==1]
-            parents_obj2 = feasible_obj2[sorted_index][rank_pop==1]
-
-            if len(parents_pop) > self.__nfront :
-                parents_pop = parents_pop[:self.__nfront]
-                parents_obj1 = parents_obj1[:self.__nfront]
-                parents_obj2 = parents_obj2[:self.__nfront]
-            rank_pop = rank_pop[:npop]
-
-
-            return  (population,
-                    objective1,
-                    objective2,
-                    rank_pop,
-                    fitness,
-                    parents_pop,
-                    parents_obj1,
-                    parents_obj2)
-
-
-        else :
-            nextend = npop-nfeasible
-            notfeasible = np.logical_not(feasibility)
-            notfeasible_pop = children_pop[notfeasible]
-            notfeasible_obj1 = children_obj1[notfeasible]
-            notfeasible_obj2 = children_obj2[notfeasible]
-
-            rank_pop = self.__fast_non_dominated_sort(feasible_obj1,feasible_obj2,nfeasible)
-            max_rank = max(rank_pop)
-            parents_pop = feasible_pop[rank_pop==1]
-            parents_obj1 = feasible_obj1[rank_pop==1]
-            parents_obj2 = feasible_obj2[rank_pop==1]
-
-            population = np.array([xi for xi in feasible_pop]+[xi for xi in notfeasible_pop[:nextend]])
-            objective1 = np.array([xi for xi in feasible_obj1]+[xi for xi in notfeasible_obj1[:nextend]])
-            objective2 = np.array([xi for xi in feasible_obj2]+[xi for xi in notfeasible_obj2[:nextend]])
-            rank_pop = np.array([xi for xi in rank_pop]+[max_rank+1 for i in range(nextend)])
-            fitness = self.__crowning_distance(objective1,objective2,rank_pop)
-
-
-
-            return  (population,
-                    objective1,
-                    objective2,
-                    rank_pop,
-                    fitness,
-                    parents_pop,
-                    parents_obj1,
-                    parents_obj2)
-
-
+    
+
+    def minimize(self,npop,ngen,verbose=True,returnDict=False):
+        """
+        Algorithme de minimisation de la fonction objectif sous contrainte.
+
+        Parameters : 
+
+            - npop (int) : 
+                Taille de la population. Si npop est impair, l'algorithm 
+                l'augmente de 1. Usuellement pour un probleme sans contrainte 
+                une population efficace est situee entre 5 et 20 fois le nombre 
+                de variable. Si les contraintes sont fortes, il sera utile 
+                d'augmenter la population. Ce parametre n'est pas pris en compte
+                si une population initiale a ete definie.
+
+            - ngen (int) : 
+                Nombre de generation. Usuellement une bonne pratique est de 
+                prendre 2 à 10 fois la taille de la population. 
+
+            - verbose (bool) option : 
+                Affiche l'etat de la recherche pour chaque iteration. Peut 
+                ralentir l'execution.
+
+            - returnDict (bool) option : 
+                Si l'option est True alors l'algorithme retourne un 
+                dictionnaire. 
+            
+        Returns : 
+
+            Si (returnDict = False) : 
+                tuple : xsolution, objective_solution (array(ndof), array(1)) 
+                            ou (None, None)
+                    - xsolution est la meilleure solution x historisee. 
+                      Sa dimension correspond a ndof, la taille du probleme 
+                      initial.
+                    - objective_solution est la fonction objectif evaluee à 
+                      xsolution. 
+                    Si la solution n'a pas convergee et les contraintes jamais 
+                    validee, l'algorithme retourne (None, None)
+            
+            Si (returnDict = False) : 
+                dict :
+                    "method" (str) : algorithm utilise.
+                    "optimization" (str) : minimisation ou maximisation.
+                    "success" (bool) : True si l'algorithm a converge.
+                    "x" (array or None) : Solution ou None si success = False.
+                    "f" (array or None) : Minimum ou None si success = False. 
+        """
+        self.__sign_factor = -1.0
+        self.__runOptimization(npop, ngen, verbose=verbose)
+
+        if returnDict : 
+            result = {"method":"Continous Single Objective Genetic Algorithm",
+                      "optimization" : "minimization",
+                      "success":self.__success,
+                      "x" : self.__optiX,
+                      "f" : self.__optiObj*self.__sign_factor
+                      }
+            return result
+        else : 
+            return self.__optiX,self.__optiObj*self.__sign_factor
+    
+    def maximize(self,npop,ngen,verbose=True,returnDict=False):
+        """
+        Algorithme de maximisation de la fonction objectif sous contrainte.
+
+        Parameters : 
+
+            - npop (int) : 
+                Taille de la population. Si npop est impair, l'algorithm 
+                l'augmente de 1. Usuellement pour un probleme sans contrainte 
+                une population efficace est situee entre 5 et 20 fois le nombre 
+                de variable. Si les contraintes sont fortes, il sera utile 
+                d'augmenter la population. Ce parametre n'est pas pris en compte
+                si une population initiale a ete definie.
+
+            - ngen (int) : 
+                Nombre de generation. Usuellement une bonne pratique est de 
+                prendre 2 à 10 fois la taille de la population. 
+
+            - verbose (bool) option : 
+                Affiche l'etat de la recherche pour chaque iteration. Peut 
+                ralentir l'execution.
+
+            - returnDict (bool) option : 
+                Si l'option est True alors l'algorithme retourne un 
+                dictionnaire. 
+            
+        Returns : 
+
+            Si (returnDict = False) : 
+                tuple : xsolution, objective_solution (array(ndof), array(1)) 
+                            ou (None, None)
+                    - xsolution est la meilleure solution x historisee. 
+                      Sa dimension correspond a ndof, la taille du probleme 
+                      initial.
+                    - objective_solution est la fonction objectif evaluee à 
+                      xsolution. 
+                    Si la solution n'a pas convergee et les contraintes jamais 
+                    validee, l'algorithme retourne (None, None)
+            
+            Si (returnDict = False) : 
+                dict :
+                    "method" (str) : algorithm utilise.
+                    "optimization" (str) : minimisation ou maximisation.
+                    "success" (bool) : True si l'algorithm a converge.
+                    "x" (array or None) : Solution ou None si success = False.
+                    "f" (array or None) : Maximum ou None si success = False. 
+        """
+        self.__sign_factor = 1.0
+        self.__runOptimization(npop, ngen, verbose=verbose)
+
+        if returnDict : 
+            result = {"method":"Continous Single Objective Genetic Algorithm",
+                      "optimization" : "maximization",
+                      "success":self.__success,
+                      "x" : self.__optiX,
+                      "f" : self.__optiObj*self.__sign_factor
+                      }
+            return result
+        else : 
+            return self.__optiX,self.__optiObj*self.__sign_factor
+    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
+    ###                         RENVOIS
+    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
 
     def getLastPopulation(self) : return self.__lastPop
 
     def getStatOptimisation(self): return self.__statOptimisation
+
+
+
+if __name__ == '__main__' : 
+
+    
+    import numpy as np 
+    import matplotlib.pyplot as plt 
+    
+    ### GA exemple 
+    ga_instance = continousSingleObjectiveGA(lambda x : x[0]**2 + x[1]**2,
+                                            [-1,-1],
+                                            [1,1])
+
+
+    resGA = ga_instance.minimize(20,100,verbose=False,returnDict=True)
+
+    for ri in resGA : 
+         print(ri," : ",resGA[ri])
