@@ -12,7 +12,7 @@ y = f(x)
 
 import sys
 sys.path.append("..")
-from _genetic_algorithms import continousSingleObjectiveGA
+from _genetic_algorithm import continousSingleObjectiveGA
 
 npop = 25
 ngen = npop*3

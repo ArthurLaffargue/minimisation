@@ -15,7 +15,7 @@ class genetic_operator :
     _crossover = {"SBX" : "_SBXcrossover",
                   "uniform" : "_uniformCrossover"}
     
-    _constraint_handling = ["penality","feasibility"]
+    _constraint_handling = ["penality","feasibility","mixed"]
 
     def __init__(self,ndof,mutation_method,mutation_rate,mutation_step,
                     crossover_method,eta_cross,
@@ -152,9 +152,7 @@ class continousSingleObjectiveGA(genetic_operator) :
                     atol = 0.,tol = 1e-3,stagThreshold = None,
                     eqcons_atol = 1e-3,penalityFactor = 1e3,constraintMethod = "penality",
                     elitisme = True,
-                    init="LHS"
-                    
-                    ) :
+                    init="LHS") :
         """
         Instance de continousSingleObjectiveGA : 
         
@@ -393,22 +391,29 @@ class continousSingleObjectiveGA(genetic_operator) :
         if self.__constraintMethod == "feasibility" :
             omin = objective.min()
             omax = objective.max()
-            fitness = (objective-omin)/(omax-omin)
+            fitness = (objective-omin)/(omax-omin)*feasibility
+
+        if self.__constraintMethod == "mixed" : 
+            omin = penalObjective.min()
+            omax = penalObjective.max()
+            fitness = (penalObjective-omin)/(omax-omin)
         
         if not( feasibility.all() ) :
             constraintViol = np.array(constraintViol)
-            distviol = norm(constraintViol/constraintViol.max(axis=0),axis=1)
+            cmax = constraintViol.max(axis=0)
+            cmax[cmax==0.0] = 1.0
+            distviol = norm(constraintViol/cmax,axis=1)
         else : 
             distviol = np.zeros(npop,dtype=float)
         return objective,fitness,feasibility,penality,distviol
 
     def __constraints_ranking(self,fitness,distviol,feasibility):
-        if feasibility.all() and self.__constraintMethod == "penality": 
-            return fitness[:]
+        if feasibility.all() or self.__constraintMethod == "penality" or self.__constraints == []: 
+            return np.argsort(fitness).argsort()
         else : 
             ranking_values = np.array( list(zip(fitness,-distviol)) ,
                                         dtype=[('fitness', float), ('dviol', float)])
-            ranking = np.argsort(ranking_values,order=("dviol","fitness"))
+            ranking = np.argsort(ranking_values,order=("dviol","fitness")).argsort()
             return ranking
 
     def __selection_tournament(self,population,npop,fitness,distviol,feasibility):
@@ -427,8 +432,8 @@ class continousSingleObjectiveGA(genetic_operator) :
         Operateur elitisme
         """
         nelite = elite_obj.shape[0]
-        elite_feasible = np.ones(nelite,dtype=bool)
-        elite_distviol = np.zeros(nelite,dtype=float)
+        elite_feasible = np.full(nelite,True,dtype=bool)
+        elite_distviol = np.full(nelite,0.0,dtype=float)
 
         if self.__optiX is None :
             pop = np.concatenate((elite_pop,children_pop), axis=0)
@@ -441,29 +446,22 @@ class continousSingleObjectiveGA(genetic_operator) :
             feasible = np.concatenate( (elite_feasible,children_feasible,[self.__optiFeasible]) )
             distviol = np.concatenate( (elite_distviol,children_dviol,[0.0]) )
 
-        if self.__constraintMethod == 'feasibility' :
+        if self.__constraintMethod in ['feasibility',"mixed"] :
             rank = self.__constraints_ranking(obj,distviol,feasible)
-            selection = rank < npop
-            population = pop[selection]
-            objective = obj[selection]
-            elite_pop = pop[selection&feasible]
-            elite_obj = obj[selection&feasible]
-
-            omin,omax = objective.min(),objective.max()
-            fitness = (objective-omin)/(omax-omin)
-
+            
         elif self.__constraintMethod == 'penality' :
-            rank = np.argsort(obj)
-            selection = rank < npop
-            population = pop[selection]
-            objective = obj[selection]
-            elite_pop = pop[selection&feasible]
-            elite_obj = obj[selection&feasible]
+            rank = np.argsort(obj).argsort()
 
-            omin,omax = objective.min(),objective.max()
-            fitness = (objective-omin)/(omax-omin)
+        select = (rank.shape[0] - rank - 1)<npop
+        elit_select =  feasible & ( (rank.shape[0] - rank - 1)<2*npop )
+        population = pop[select]
+        objective = obj[select]
+        elite_pop = pop[elit_select]
+        elite_obj = obj[elit_select]
 
-        
+        omin,omax = objective.min(),objective.max()
+        fitness = (objective-omin)/(omax-omin)
+
         return population,objective,elite_pop,elite_obj,fitness
 
     def __archive_solution(self,population,objective,penality,feasibility):
@@ -474,7 +472,7 @@ class continousSingleObjectiveGA(genetic_operator) :
         if self.__optiObj is None :
             selection = np.ones_like(feasibility,dtype=bool)
         else :
-            selection = (penality <= self.__optiPenality)&(objective >= self.__optiObj) 
+            selection = (penality <= self.__optiPenality)&(objective > self.__optiObj) 
             
 
         if selection.any() : 
@@ -505,7 +503,7 @@ class continousSingleObjectiveGA(genetic_operator) :
         if self.__stagThreshold is not None : 
             c1 = (generation - last_improvement) > self.__stagThreshold
         
-        c2 = ( np.std(objective) )<= ( self.__atol + self.__tol*np.abs(np.mean(objective)) )
+        c2 = ( np.std(objective) ) <= ( self.__atol + self.__tol*np.abs(np.mean(objective)) )
             
         converged = (c2 or c1) and self.__optiFeasible
 
@@ -566,9 +564,8 @@ class continousSingleObjectiveGA(genetic_operator) :
         for generation in range(ngen):
 
             #Algorithme genetique
-
             fitness = self.sharingFunction(fitness,population)
-
+            
             selection = self.selectionFunction(population,npop,fitness,distviol,feasibility)
 
             children_pop = self.crossoverFunction(selection,population,npop)
@@ -598,8 +595,6 @@ class continousSingleObjectiveGA(genetic_operator) :
             else :
                 population = children_pop[:]
                 objective = children_obj[:]
-
-
 
             better_sol = self.__archive_solution(children_pop,children_obj,penality,feasibility)
             self.__archive_details(generation)

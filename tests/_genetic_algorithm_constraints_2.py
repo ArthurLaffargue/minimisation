@@ -17,16 +17,17 @@ xmax = np.array([75,75])
 
 import sys
 sys.path.append("..")
-from _genetic_algorithms import continousSingleObjectiveGA
+from _genetic_algorithm import continousSingleObjectiveGA
 
 cons = [{'type': 'eq', 'fun': c0}]
 
 npop = 75
 ngen = 10000//npop
 
-ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,cons)
-ga_instance.setPenalityParams(constraintAbsTol=0.1,penalityFactor=100,penalityGrowth=1.0)
-ga_instance.setConvergenceCriteria(stagnationThreshold=10000,tol=-1)
+ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,cons,
+                eqcons_atol = 0.1,penalityFactor =100,constraintMethod='penality')
+# ga_instance.setPenalityParams(constraintAbsTol=0.1,penalityFactor=100,penalityGrowth=1.0)
+# ga_instance.setConvergenceCriteria(stagnationThreshold=10000,tol=-1)
 
 
 listXga = []
