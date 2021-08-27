@@ -19,8 +19,8 @@ c2 = lambda x : -c1(x) + 2*epsilon
 
 cons = []
 #OR
-# cons = [{'type': 'ineq', 'fun': c1},
-#        {'type': 'ineq', 'fun': c2}]
+cons = [{'type': 'ineq', 'fun': c1},
+       {'type': 'ineq', 'fun': c2}]
 
 ## Optimisation
 
@@ -40,7 +40,7 @@ maxIter = 2000
 npop = 36
 ngen = (maxIter+1)//npop
 
-ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,constraints=cons,tol=-1.0)
+ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,constraints=cons,tol=-1.0,constraintMethod="penality")
 
 for k in range(nloop):
     print("LOOP : ",k)

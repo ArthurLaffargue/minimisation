@@ -6,1009 +6,6 @@ import time
 
 from _utils import uniform_init_population_lhs,uniform_init_population_random
 
-class continousSingleObjectiveGA : 
-
-    def __init__(self,func,xmin,xmax,constraints=[],preprocess_function=None) :
-        """
-        Instance de continousSingleObjectiveGA : 
-        
-        Algorithme genetique d'optimisation de fonction mono-objectif à 
-        variables reelles. Recherche d'un optimum global de la fonction f sur
-        les bornes xmin-xmax. 
-
-        Parameters : 
-        
-            - func (callable) : 
-                Fonction objectif a optimiser de la forme f(x) ou x est 
-                l'argument de la fonction de forme scalaire ou array et renvoie 
-                un scalaire ou array.
-
-            - xmin (array like) : 
-                Borne inferieure des variables d'optimisation. 
-
-            - xmax (array like) : 
-                Borne supérieure des variables d'optimisation. Doit être de 
-                même dimension que xmin. 
-
-            - constraints (List of dict) option : 
-                Definition des contraintes dans une liste de dictionnaires. 
-                Chaque dictionnaire contient les champs suivants 
-                    type : str
-                        Contraintes de type egalite 'eq' ou inegalite 'ineq' ; 
-                    fun : callable
-                        La fonction contrainte de la meme forme que func ; 
-
-            - preprocess_function (callable or None) option : 
-                Definition d'une fonction sans renvoie de valeur à executer 
-                avant chaque evaluation de la fonction objectif func ou des 
-                contraintes.
-        
-
-
-        Example : 
-
-            func = lambda x : x[0]**2 + x[1]**2
-            xmin = [-1,-1]
-            xmax = [1,1]
-            ga_instance = continousSingleObjectiveGA(func,
-                                                    xmin,
-                                                    xmax)
-
-
-            resGA = ga_instance.minimize(20,100,verbose=False,returnDict=True)
-        
-            Ouputs : 
-                ############################################################
-
-                AG iterations completed     
-                Success :  True
-                Number of generations :  100
-                Population size :  20
-                Elapsed time : 0.162 s
-                ############################################################
-
-                resGA = {
-                    method  :  Continous Single Objective Genetic Algorithm
-                    optimization  :  minimization
-                    success  :  True
-                    x  :  [-0.00222156  0.00380852] #may vary
-                    f  :  1.9440156259914855e-05    #may vary
-                    constrViolation  :  []
-                    }
-
-        """
-
-        self.__xmin = np.minimum(xmin,xmax)
-        self.__xmax = np.maximum(xmin,xmax)
-
-        self.__ndof = len(self.__xmin)
-
-        self.__preProcess = preprocess_function
-        self.__function = func
-        self.__constraints = constraints
-
-        self.__nPreSelected = 2 #Nombre d'individus preselectionne pour tournois
-
-        #Mutation
-        self.__rateMut = 0.10
-        self.__mutationMethod = "normal" #"normal" #"polynomial" "uniform"
-        self.__mutationFunction = self.__normalMutation
-        #Mutation uniforme ou normale
-        self.__stepMut = 0.10
-        #Mutation polynomiale
-        self.__etam = 0
-        self.__alpham = 1/(self.__etam+1)
-        
-
-        #Crossover
-        self.__crossoverMethod = "SBX" #"SBX"
-        self.__crossoverFunction = self.__SBXcrossover
-        #croissement uniforme       
-        self.__crossFactor = 1.20
-        #croissement SBX
-        self.__etac = 1
-        self.__alphac = 1/(self.__etac+1)
-
-        #convergence 
-        self.__atol = 0.
-        self.__tol = 1e-3
-        self.__stagThreshold = None
-
-
-        self.__constraintAbsTol = 1e-3
-        self.__penalityFactor = 1e3
-        self.__penalityGrowth = 1.0
-        self.__sharingDist = None
-        self.__constraintMethod = "penality" #"feasibility"
-        self.__elitisme = True
-
-        self.__initial_population = None 
-        self.__initial_population_selector = uniform_init_population_lhs
-
-        self.__optiObj = None
-        self.__optiX = None
-        self.__optiX_scaled = None
-        self.__optiFeasible = False
-        self.__success = False
-        self.__lastPop = None
-        self.__constrViolation = []
-        self.__statOptimisation = None
-
-        self.__sign_factor = 1.0
-
-        self.__selection_function = self.__selection_tournament
-
-        
-
-
-    def setPreSelectNumber(self,nbr_preselected=2):
-        """
-        Change le nombre d'individus pre-selectionnes dans un mode de selection 
-        par tournois. 
-
-        Parameter : 
-
-            - nbr_preselected (int) option : nombre d'individus participants à 
-              chaque tournois. Superieur a 1.
-        """
-        self.__nPreSelected = nbr_preselected
-
-    def setMutationParameters(self,mutation_step=0.10,mutation_rate=0.10,etam=0,method="normal") : 
-        """
-        Change les parametres de mutation. 
-
-        Parameters : 
-
-            - mutation_step (float) option : limite de deplacement par mutation. 
-              Doit etre compris entre 0 et 1. Mutation normale ou uniforme.
-
-            - mutation_rate (float) option : probabilite de mutation. Doit etre 
-              compris entre 0 et 1.
-            
-            - etam (int) option : paramêtre de mutation polynomiale. Valeur conseillée 0. 
-
-            - method (string) option : définition de la méthode de mutation. 
-                'uniform' : distribution uniforme de mutation ; 
-                'normal' : distribution normale, réduite, centrée de mutation ; 
-                'polynomial' : distribution polynomial [Ripon et al., 2007]
-
-
-        [Ripon et al., 2007] :  Ripon K.S.N., Kwong S. and Man K.F. (2007) a 
-        real-coding jumping gene genetic algorithm (RJGGA) for multiobjective optimization.
-        Information Sciences, Volume 177,
-        Issue 2, 632-654
-        """
-
-        self.__stepMut = mutation_step
-        self.__rateMut = mutation_rate
-        self.__etam = etam
-        self.__alpham = 1/(self.__etam+1)
-
-        if method == 'normal' : 
-            self.__mutationMethod = method
-            self.__mutationFunction = self.__normalMutation
-        if method == 'uniform' : 
-            self.__mutationMethod = method
-            self.__mutationFunction = self.__uniformMutation
-        if method == 'polynomial' : 
-            self.__mutationMethod = method
-            self.__mutationFunction = self.__polynomialMutation
-
-
-    def setCrossoverParameters(self,crossover_factor=1.25,etac=1,method="SBX"):
-        """
-        Change les paramètres de croissement des solutions
-
-        Parameter : 
-
-            - crossover_factor (float) option : facteur de melange des 
-              individus parents pour la méthode barycentrique (barycenter).
-              Valeur conseillée 1.20 ; 
-            
-            - etac (int) option : indice de croissement de la méthode SBX.
-              Valeur conseillée 0.
-              Simulated Binary Crossover - [Deb and al 95]
-            
-            - method (string) option : Définition de la méthode de croissement. 
-                "SBX" : Simulated Binary Crossover - [Deb and al 95] ;
-                "barycenter" : barycentre arithmétique ; 
-
-
-        [Deb and al 95] : K. Deb, S. Agarwal, Simulated binary crossover
-        for continuous search space, Complex Systems 9 (1995) 115–148
-        """
-        self.__crossFactor = crossover_factor
-        self.__etac = etac
-        self.__alphac = 1/(self.__etac+1)
-
-        if method == "SBX" : 
-            self.__crossoverMethod = method
-            self.__crossoverFunction = self.__SBXcrossover
-        
-        if method == "barycenter" : 
-            self.__crossoverMethod = method
-            self.__crossoverFunction = self.__barycenterCrossover
-
-
-    def setSharingDist(self,sharingDist=None) :
-        """
-        Change le rayon de diversite des solutions.
-
-        Parameter : 
-
-            - sharingDict (float or None) option : Rayon de diversite de 
-              solution. Si None, le parametre est initialise a 
-              1/(taille population).
-        """
-
-        self.__sharingDist = sharingDist
-
-
-
-    def setSelectionMethod(self,method="tournament"):
-        """
-        Change la methode de selection. 
-
-        Parameter : 
-
-            - method (str) option : Definition de la methode de selection. 
-                Si method = 'tournament' : selection par tournois. Recommandé pour les contraintes.
-                Si method = 'SRWRS' : selection par "Stochastic remainder 
-                without replacement selection" [Golberg]
-        
-        [Golberg]    D.E Goldberg. Genetic Algorithms in Search, 
-        Optimization and Machine Learning. Reading MA Addison Wesley, 1989.
-        """
-        if method == "SRWRS" :
-            self.__selection_function = self.__selection_SRWRS
-        if method == "tournament" :
-            self.__selection_function = self.__selection_tournament
-
-    def setConstraintMethod(self,method="penality"):
-        """
-        Change la methode de prise en compte des contraintes. 
-
-        Parameter : 
-
-            method (str) option : Definition de la methode de gestion des 
-            contraintes. 
-                Si method = 'penality' utilisation d'une penalisation 
-                quadratique. 
-                Si method = 'feasibility' les solutions non satisfaisante 
-                sont rejetees.
-        """
-        if method == "feasibility" or method == "penality" :
-            self.__constraintMethod = method
-
-    def setPenalityParams(self,constraintAbsTol=1e-3,penalityFactor=1e3,penalityGrowth=1.00):
-        """
-        Change le parametrage de la penalisation de contrainte. 
-
-        Parameters : 
-
-            - contraintAbsTol (float) option : tolerance des contraintes 
-              d'egalite. Si la contrainte i ||ci(xk)|| <= contraintAbsTol, la solution est viable. 
-
-            - penalityFactor (float) option : facteur de penalisation. 
-              La nouvelle fonction objectif est evaluee par la forme suivante :
-              penal_objective_func = objective_func +
-                                sum(ci**2 if ci not feasible)*penalityFactor
-                                            
-            - penalityGrowth (float) option : pour chaque iteration de 
-              l'algorithme le facteur de penalite peut croitre d'un facteur 
-              penalityGrowth
-
-        """
-        self.__constraintAbsTol = constraintAbsTol
-        self.__penalityFactor = penalityFactor
-        self.__penalityGrowth = penalityGrowth
-        self.__constraintMethod = "penality"
-
-    def setElitisme(self,elitisme=True):
-        """
-        Booleen d'activation d'un operateur d'elitsime herite de la methode 
-        NSGA-II. L'elitisme melange les populations parents et enfants pour en 
-        extraire les meilleurs individus. Si cette option est desactivee, la 
-        methode de contrainte par faisabilite est impossible. L'algorithme 
-        utilisera une penalite.
-
-        Parameter : 
-
-            - elitisme (bool) option : actif (True) ou inactif (False)
-
-        """
-        self.__elitisme = elitisme
-
-    def redefine_objective(self,func):
-        """
-        Permet de redefinir la fonction objectif. 
-
-        Parameter : 
-
-            - func (callable) : 
-                Fonction objectif a optimiser de la forme f(x) ou x est 
-                l'argument de la fonction de forme scalaire ou array et 
-                renvoie un scalaire ou array.
-        """
-        self.__function = func
-
-    def redefine_constraints(self,constraints=[]):
-        """
-        Permet de redefinir les contraintes du probleme. 
-
-        Parameter : 
-
-            - constraints (List of dict) option : 
-                    Definition des contraintes dans une liste de dictionnaires. 
-                    Chaque dictionnaire contient les champs suivants 
-                        type : str
-                            Contraintes de type egalite 'eq' ou inegalite 'ineq'; 
-                        fun : callable
-                            La fonction contrainte de la meme forme que func ; 
-        """
-        self.__constraints = constraints
-    
-
-    def redefine_preprocess_func(self,preprocess_function=None):
-        """
-        Permet de redefinir la fonction de preprocessing. 
-
-        Parameter
-
-            - preprocess_function (callable or None) option : 
-                Definition d'une fonction sans renvoie de valeur à executer 
-                avant chaque evaluation de la fonction objectif func ou des 
-                contraintes.
-        """
-        self.__preProcess = preprocess_function
-
-
-    def define_initial_population(self,xstart=None,selector='LHS'):
-        """
-        Definition d'une population initiale. 
-
-        Parameter : 
-
-            - xstart (array(npop,ndof)) or None option : 
-                xstart est la solution initiale. Ses dimensions doivent etre de
-                (npop,ndof). 
-                npop la taille de la population et ndof le nombre de variable
-                (degrees of freedom).
-            
-            - selector (string) option : 
-                si pas de xstart definit, selection aléatoire : 
-                    'LHS' : Latin Hypercube Selector, variante meilleure que uniforme ; 
-                    'random' : loi uniforme ; 
-                    sinon 'LHS' ; 
-        """
-        if xstart is not None : 
-            x = np.array(xstart)
-            npop,ndof = x.shape
-            if ndof != self.__ndof : 
-                raise ValueError("The size of initial population is not corresponding to bounds size")
-
-            xpop = np.maximum(np.minimum((x-self.__xmin)/(self.__xmax-self.__xmin),1.0),0.0)
-            if npop%2 != 0 : 
-                xpop = np.insert(xpop,0,0.5,axis=0)
-            
-            self.__initial_population = xpop
-        
-        
-        elif selector == 'lhs' : 
-            self.__initial_population = None
-            self.__initial_population_selector = uniform_init_population_lhs
-        
-
-        elif selector == 'random' : 
-            self.__initial_population = None
-            self.__initial_population_selector = uniform_init_population_random
-
-        else : 
-            self.__initial_population = None
-            self.__initial_population_selector = uniform_init_population_lhs
-        
-        
-    def setConvergenceCriteria(self,atol=0.,tol=1e-3,stagnationThreshold=None):
-        """
-        Définition des paramètres de convergence de l'algorithme. d
-
-        Parameters :
-
-            - stagnationThreshold (int or None) : nombre d'itération sans 
-              amélioration de la meilleure solution. Si None, pas d'évaluation du critère. 
-        """
-
-        self.__atol = atol
-        self.__tol = tol
-        self.__stagThreshold = stagnationThreshold
-
-
-    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
-    ###                         OPERATEURS
-    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
-    def __evaluate_function_and_constraints(self,xi):
-        """
-        Evaluate the problem on xi point
-        """
-        if self.__preProcess is not None :
-            self.__preProcess(xi)
-        objective = self.__function(xi)*self.__sign_factor
-        constrViolation = []
-        feasibility = True
-        penality = 0.0
-        for c in self.__constraints : 
-            type = c["type"]
-            g = c['fun']
-            gi = g(xi)
-
-            if type == 'strictIneq'  :
-                feasibility &= gi>0
-                constrViol = np.minimum(gi,0.0)
-                constrViolation.append(abs(constrViol))
-                penality += constrViol**2
-
-            if type == 'ineq' :
-                feasibility &= gi>=0
-                constrViol = np.minimum(gi,0.0)
-                constrViolation.append(abs(constrViol))
-                penality += constrViol**2
-
-            if type == 'eq'  :
-                constrViol = np.abs(gi)
-                feasibility &= constrViol<=self.__constraintAbsTol
-                constrViolation.append(abs(constrViol))
-                penality += self.__penalityFactor*constrViol**2
-        penalObjective = objective - penality
-        return objective,penalObjective,feasibility,penality,constrViolation
-
-    def __fitness_and_feasibility(self,Xarray,objective,npop) :
-        """
-        Evaluation de la fonction objectif et des contraintes
-        """
-
-        feasibility = np.ones(npop,dtype=bool)
-        penality = np.zeros(npop,dtype=float)
-        penalObjective = np.zeros(npop,dtype=float)
-        for i,xi, in enumerate(Xarray) :
-            (obj_i,
-            pobj_i,
-            feas_i,
-            penal_i,_) = self.__evaluate_function_and_constraints(xi)
-
-            objective[i] = obj_i
-            penalObjective[i] = pobj_i
-            feasibility[i] = feas_i
-            penality[i] = penal_i
-
-        if self.__constraintMethod == 'penality' : 
-            omin = penalObjective.min()
-            omax = penalObjective.max()
-            fitness = (penalObjective-omin)/(omax-omin)
-        if self.__constraintMethod == "feasibility" :
-            omin = objective.min()
-            omax = objective.max()
-            fitness = (objective-omin)/(omax-omin)
-            fitness *= feasibility
-        self.__penalityFactor *= self.__penalityGrowth
-        return objective,fitness,feasibility,penality
-
-    def __barycenterCrossover(self,selection,population,npop):
-        """
-        Operateur de croisement barycentrique
-        """
-
-        couples = np.zeros((npop//2,2,self.__ndof))
-        children = np.zeros_like(population)
-        alphaCross = rd.sample((npop//2,self.__ndof))*self.__crossFactor
-        for i in range(npop//2):
-            k = i
-            while k == i :
-                k = rd.randint(0,npop//2-1)
-            couples[i] = [selection[i],selection[k]]
-        children[:npop//2] = alphaCross*couples[:,0] + (1-alphaCross)*couples[:,1]
-        children[npop//2:] = alphaCross*couples[:,1] + (1-alphaCross)*couples[:,0]
-
-        return children
-    
-    def __SBXcrossover(self,selection,population,npop):
-        couples = np.zeros((npop//2,2,self.__ndof))
-        children = np.zeros_like(population)
-        uCross = rd.sample((npop//2,self.__ndof))
-
-        betaCross = np.zeros_like(uCross)
-        uinf_filter = uCross<=0.5
-        betaCross[uinf_filter] = (2*uCross[uinf_filter])**(self.__alphac)
-        betaCross[~uinf_filter] = (2*(1-uCross[~uinf_filter]))**(-self.__alphac)
-
-        for i in range(npop//2):
-            k = i
-            while k == i :
-                k = rd.randint(0,npop//2-1)
-            couples[i] = [selection[i],selection[k]]
-        
-        x1 = couples[:,0]
-        x2 = couples[:,1]
-
-        children[:npop//2] = 0.5*( (1-betaCross)*x1 + (1+betaCross)*x2 )
-        children[npop//2:] = 0.5*( (1+betaCross)*x1 + (1-betaCross)*x2 )
-
-
-
-        return children
-
-    def __sharingFunction(self,fitness,population):
-        """
-        Operateur de diversite de solution
-        """
-        dShare = self.__sharingDist
-
-        if dShare is None : 
-            return fitness
-        elif dShare < 0 : 
-            return fitness
-        else : 
-            distance = np.array([np.sqrt(np.sum((population - xj)**2,axis=1)) for xj in population])
-            sharing = (1-distance/dShare)*(distance<dShare)
-            sharingFactor = np.sum(sharing,axis=1)
-            fitness = fitness/sharingFactor
-
-
-            fmin = fitness.min()
-            fmax = fitness.max()
-            fitness = (fitness-fmin)/(fmax-fmin)
-            return fitness
-
-    def __selection_tournament(self,population,npop,fitness):
-        """
-        Operateur de selection par tournois
-        """
-        ndof = self.__ndof
-        selection = np.zeros((npop//2,ndof))
-        for i in range(npop//2):
-            indices = rd.choice(npop-1,self.__nPreSelected)
-            selection[i] = population[indices[np.argmax(fitness[indices])]]
-        return selection
-
-    def __selection_SRWRS(self,population,npop,fitness) :
-        """
-        Operateur de selection SRWRS
-        """
-        ndof = self.__ndof
-        r_array = fitness/fitness.mean()
-        index_list = []
-        prob_list = []
-        for i,ri in enumerate(r_array):
-            eri = int(ri)
-            index_list += [i]*(eri+1)
-            prob_list += [ri-eri]*(eri+1)
-
-        prob_list = np.array(prob_list)/np.sum(prob_list)
-        index_list = np.array(index_list,dtype=int)
-        index_select = rd.choice(index_list,npop//2,p=prob_list)
-        selection = population[index_select]
-        return selection
-
-    def __uniformMutation(self,population,npop) :
-        """
-        Operateur de mutation
-        """
-        probaMutation = rd.sample((npop,self.__ndof))
-        deltaX = self.__stepMut*(rd.sample((npop,self.__ndof))-0.5)
-        population = population + deltaX*(probaMutation<=self.__rateMut)
-
-        return population
-
-    def __normalMutation(self,population,npop) :
-        """
-        Operateur de mutation
-        """
-        probaMutation = rd.sample((npop,self.__ndof))
-        deltaX = self.__stepMut*( rd.normal(size=(npop,self.__ndof)) )
-        population = population + deltaX*(probaMutation<=self.__rateMut)
-
-        return population
-    
-
-    def __polynomialMutation(self,population,npop):
-        """
-        Operateur de mutation
-        """
-        probaMutation = rd.sample((npop,self.__ndof))
-
-        uMut = rd.sample((npop,self.__ndof))
-        uinf_filter = uMut < 0.5
-        deltaMut = np.zeros_like(uMut)
-        deltaMut[uinf_filter] = (2*uMut[uinf_filter])**self.__alpham - 1 
-        deltaMut[~uinf_filter] = 1-(2*(1-uMut[~uinf_filter]))**self.__alpham
-        population = population + deltaMut*(probaMutation<=self.__rateMut)
-
-        return population
-    
-
-
-
-    def __selection_elitisme(self,parents_pop,parents_obj,children_pop,children_obj,children_penal,feasibility) :
-        """
-        Operateur elitisme
-        """
-        if self.__constraintMethod == 'feasibility' : 
-            child_filter = feasibility[:]
-        else : 
-            child_filter = np.ones_like(feasibility,dtype=bool)
-
-        if self.__optiX is None :
-            feasible_pop = np.concatenate((parents_pop,children_pop[child_filter]), axis=0)
-            feasible_obj = np.concatenate( (parents_obj,children_obj[child_filter]) )
-        else :
-            feasible_pop =  np.concatenate( (parents_pop,children_pop[child_filter],[self.__optiX_scaled]), axis=0)
-            feasible_obj = np.concatenate( (parents_obj,children_obj[child_filter],[self.__optiObj]) )
-
-        npop = len(children_pop)
-        nfeasible = len(feasible_pop)
-
-
-        if nfeasible >= npop :
-            omin,omax = feasible_obj.min(),feasible_obj.max()
-            fitness = (feasible_obj-omin)/(omax-omin)
-            fitness = self.__sharingFunction(fitness,feasible_pop)
-            sorted_index = np.argsort(fitness)[::-1]
-            population = feasible_pop[sorted_index[:npop]]
-            objective = feasible_obj[sorted_index[:npop]]
-
-
-            omin = objective.min()
-            omax = objective.max()
-            fitness = (objective-omin)/(omax-omin)
-
-            parents_pop = population[:]
-            parents_obj = objective[:]
-            return population,objective,parents_pop,parents_obj,fitness
-
-
-        else :
-            nextend = npop-nfeasible
-            notfeasible = np.logical_not(feasibility)
-            notfeasible_pop = children_pop[notfeasible]
-            notfeasible_obj = children_obj[notfeasible]
-            notfeasible_penal = children_penal[notfeasible]
-            penalObj = notfeasible_obj - notfeasible_penal
-            sortedIndex = np.argsort(penalObj)[::-1]
-            sortedIndex = sortedIndex[:nextend]
-
-            population = np.concatenate( (feasible_pop,notfeasible_pop[sortedIndex]), axis=0)
-            objective = np.concatenate( (feasible_obj,notfeasible_obj[sortedIndex]) )
-
-            if self.__constraintMethod == 'penality' : 
-                penality = np.concatenate( (feasible_obj*0.0, notfeasible_penal[sortedIndex]) )
-                penalObj = objective - penality
-                omin = penalObj.min()
-                omax = penalObj.max()
-                fitness = (penalObj-omin)/(omax-omin)
-            else : 
-                omin = objective.min()
-                omax = objective.max()
-                fitness = (objective-omin)/(omax-omin)
-
-            parents_obj = feasible_obj[:]
-            parents_pop = feasible_pop[:]
-            return population,objective,parents_pop,parents_obj,fitness
-
-    def __archive_solution(self,parents_pop,parents_obj):
-        """
-        Archive la solition de meilleur objectif
-        """
-        better_solution = False
-        if len(parents_pop) > 0 :
-            indexmax = np.argmax(parents_obj)
-            maxObj = parents_obj[indexmax]
-
-            if self.__optiObj is None :
-                self.__optiX_scaled = parents_pop[indexmax]
-                self.__optiX = self.__optiX_scaled*(self.__xmax-self.__xmin)+self.__xmin
-                self.__optiObj = parents_obj[indexmax]
-                better_solution = True
-                self.__optiFeasible = True
-
-            else :
-                if self.__optiObj < maxObj :
-                    self.__optiX_scaled = parents_pop[indexmax]
-                    self.__optiX = self.__optiX_scaled*(self.__xmax-self.__xmin)+self.__xmin
-                    self.__optiObj = parents_obj[indexmax]
-                    better_solution = True
-        return better_solution
-
-    def __archive_details(self,generation):
-        """
-        Archive une liste de la meilleur solution par iteration
-        """
-        if self.__optiObj is not None : 
-            self.__statOptimisation[generation] = self.__optiObj*self.__sign_factor
-        else : 
-            self.__statOptimisation[generation] = None
-
-
-
-    def __checkConvergenceState(self,generation,last_improvement,objective) : 
-        
-        c1 = False
-        if self.__stagThreshold is not None : 
-            c1 = (generation - last_improvement) > self.__stagThreshold
-        
-        c2 = ( np.std(objective) )<= ( self.__atol + self.__tol*np.abs(np.mean(objective)) )
-            
-        converged = (c2 or c1) and self.__optiFeasible
-
-        return converged
-
-
-
-
-    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
-    ###                         ALGORITHME
-    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
-
-    def __runOptimization(self,npop,ngen,verbose=True):
-        """
-        Optimisation
-        """
-
-        ## Initialisation
-        
-
-        if not(self.__elitisme) :
-            self.__constraintMethod = "penality"
-
-
-        if npop%2 != 0 :
-            npop += 1
-        ndof = self.__ndof
-
-        if self.__initial_population is None : 
-            population = self.__initial_population_selector((npop,ndof)) #population initiale
-        else : 
-            population = self.__initial_population
-            npop = len(population)
-
-        # if self.__sharingDist is None :
-        #     self.__sharingDist = 1/npop
-
-        xmin = self.__xmin
-        xmax = self.__xmax
-        
-        self.__optiObj = None
-        self.__optiX = None
-        self.__optiX_scaled = None
-        self.__optiFeasible = False
-        self.__success = False
-        self.__constrViolation = []
-        self.__lastPop = None
-        last_improvement = 0
-
-        self.__statOptimisation  = np.full(ngen,None,dtype=float)
-        objective = np.zeros(npop)
-
-
-        startTime = time.time()
-
-        Xarray = population*(xmax-xmin) + xmin
-        objective,fitness,feasibility,penality = self.__fitness_and_feasibility(Xarray,objective,npop)
-        parents_pop = population[feasibility]
-        parents_obj = objective[feasibility]
-        for generation in range(ngen):
-
-            #Algorithme genetique
-
-            fitness = self.__sharingFunction(fitness,population)
-
-            selection = self.__selection_function(population,npop,fitness)
-
-            children_pop = self.__crossoverFunction(selection,population,npop)
-
-            children_pop = np.minimum(1.0,np.maximum(0.0,children_pop))
-
-            children_pop = self.__mutationFunction(children_pop,npop)
-
-            children_pop = np.minimum(1.0,np.maximum(0.0,children_pop))
-
-            Xarray = children_pop*(xmax-xmin) + xmin
-            children_obj,fitness,feasibility,penality = self.__fitness_and_feasibility(Xarray,objective,npop)
-
-            #Elistisme
-            if self.__elitisme :
-                (population,
-                objective,
-                parents_pop,
-                parents_obj,
-                fitness) = self.__selection_elitisme(parents_pop,
-                                                    parents_obj,
-                                                    children_pop,
-                                                    children_obj,
-                                                    penality,
-                                                    feasibility)
-            else :
-                population = children_pop[:]
-                objective = children_obj[:]
-
-
-
-            better_sol = self.__archive_solution(children_pop[feasibility],children_obj[feasibility])
-            self.__archive_details(generation)
-
-            if better_sol : 
-                last_improvement = generation
-            
-            converged = self.__checkConvergenceState(generation,
-                                                     last_improvement,
-                                                     objective)
-
-            if verbose :
-                print('Iteration ',generation+1)
-
-
-            if converged : 
-                print("SOLUTION CONVERGED")
-                break 
-
-    
-        Xarray = population*(xmax-xmin) + xmin
-        endTime = time.time()
-        duration = endTime-startTime
-
-        ##MESSAGES
-        if self.__optiX is not None : 
-            self.__success = True
-            _,_,_,_,constrViolation = self.__evaluate_function_and_constraints(self.__optiX)
-            self.__constrViolation = constrViolation
-
-        print('\n'*2+'#'*60+'\n')
-        print('AG iterations completed')
-        print("Success : ", self.__success)
-        print('Number of generations : ',generation+1)
-        print('Population size : ',npop)
-        print('Elapsed time : %.3f s'%duration)
-
-        print('#'*60+'\n')
-
-        self.__lastPop = Xarray
-
-        
-    def minimize(self,npop,ngen,verbose=True,returnDict=False):
-        """
-        Algorithme de minimisation de la fonction objectif sous contrainte.
-
-        Parameters : 
-
-            - npop (int) : 
-                Taille de la population. Si npop est impair, l'algorithm 
-                l'augmente de 1. Usuellement pour un probleme sans contrainte 
-                une population efficace est situee entre 5 et 20 fois le nombre 
-                de variable. Si les contraintes sont fortes, il sera utile 
-                d'augmenter la population. Ce parametre n'est pas pris en compte
-                si une population initiale a ete definie.
-
-            - ngen (int) : 
-                Nombre de generation. Usuellement une bonne pratique est de 
-                prendre 2 à 10 fois la taille de la population. 
-
-            - verbose (bool) option : 
-                Affiche l'etat de la recherche pour chaque iteration. Peut 
-                ralentir l'execution.
-
-            - returnDict (bool) option : 
-                Si l'option est True alors l'algorithme retourne un 
-                dictionnaire. 
-            
-        Returns : 
-
-            Si (returnDict = False) : 
-                tuple : xsolution, objective_solution (array(ndof), array(1)) 
-                            ou (None, None)
-                    - xsolution est la meilleure solution x historisee. 
-                      Sa dimension correspond a ndof, la taille du probleme 
-                      initial.
-                    - objective_solution est la fonction objectif evaluee à 
-                      xsolution. 
-                    Si la solution n'a pas convergee et les contraintes jamais 
-                    validee, l'algorithme retourne (None, None)
-            
-            Si (returnDict = False) : 
-                dict :
-                    "method" (str) : algorithm utilise.
-                    "optimization" (str) : minimisation ou maximisation.
-                    "success" (bool) : True si l'algorithm a converge.
-                    "x" (array or None) : Solution ou None si success = False.
-                    "f" (array or None) : Minimum ou None si success = False. 
-                    "constrViolation" (List of float) : violation des 
-                        contraintes. Liste vide si aucune contrainte.
-        """
-        self.__sign_factor = -1.0
-        self.__runOptimization(npop, ngen, verbose=verbose)
-
-        if returnDict : 
-            result = {"method":"Continous Single Objective Genetic Algorithm",
-                      "optimization" : "minimization",
-                      "success":self.__success,
-                      "x" : self.__optiX,
-                      "f" : self.__optiObj*self.__sign_factor,
-                      "constrViolation" : self.__constrViolation
-                      }
-            return result
-        else : 
-            return self.__optiX,self.__optiObj*self.__sign_factor
-    
-    def maximize(self,npop,ngen,verbose=True,returnDict=False):
-        """
-        Algorithme de maximisation de la fonction objectif sous contrainte.
-
-        Parameters : 
-
-            - npop (int) : 
-                Taille de la population. Si npop est impair, l'algorithm 
-                l'augmente de 1. Usuellement pour un probleme sans contrainte 
-                une population efficace est situee entre 5 et 20 fois le nombre 
-                de variable. Si les contraintes sont fortes, il sera utile 
-                d'augmenter la population. Ce parametre n'est pas pris en compte
-                si une population initiale a ete definie.
-
-            - ngen (int) : 
-                Nombre de generation. Usuellement une bonne pratique est de 
-                prendre 2 à 10 fois la taille de la population. 
-
-            - verbose (bool) option : 
-                Affiche l'etat de la recherche pour chaque iteration. Peut 
-                ralentir l'execution.
-
-            - returnDict (bool) option : 
-                Si l'option est True alors l'algorithme retourne un 
-                dictionnaire. 
-            
-        Returns : 
-
-            Si (returnDict = False) : 
-                tuple : xsolution, objective_solution (array(ndof), array(1)) 
-                            ou (None, None)
-                    - xsolution est la meilleure solution x historisee. 
-                      Sa dimension correspond a ndof, la taille du probleme 
-                      initial.
-                    - objective_solution est la fonction objectif evaluee à 
-                      xsolution. 
-                    Si la solution n'a pas convergee et les contraintes jamais 
-                    validee, l'algorithme retourne (None, None)
-            
-            Si (returnDict = False) : 
-                dict :
-                    "method" (str) : algorithm utilise.
-                    "optimization" (str) : minimisation ou maximisation.
-                    "success" (bool) : True si l'algorithm a converge.
-                    "x" (array or None) : Solution ou None si success = False.
-                    "f" (array or None) : Maximum ou None si success = False. 
-                    "constrViolation" (List of float) : violation des 
-                        contraintes. Liste vide si aucune contrainte.
-        """
-        self.__sign_factor = 1.0
-        self.__runOptimization(npop, ngen, verbose=verbose)
-
-        if returnDict : 
-            result = {"method":"Continous Single Objective Genetic Algorithm",
-                      "optimization" : "maximization",
-                      "success":self.__success,
-                      "x" : self.__optiX,
-                      "f" : self.__optiObj*self.__sign_factor,
-                      "constrViolation" : self.__constrViolation
-                      }
-            return result
-        else : 
-            return self.__optiX,self.__optiObj*self.__sign_factor
-    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
-    ###                         RENVOIS
-    ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
-
-    def getLastPopulation(self) : return self.__lastPop
-
-    def getStatOptimisation(self): return self.__statOptimisation
-
-
-
 
 class continousBiObjective_NSGA():
     
@@ -1020,33 +17,25 @@ class continousBiObjective_NSGA():
         Algorithme genetique d'optimisation bi-objectif à variables reelles. 
         Recherche du front de Pareto de fonctions scalaires à variables 
         continues sur l'intervalle [xmin;xmax].
-
         ---------------------------------------------------------------------------------------------------------
         Source : 
-
         A Fast and Elitist Multiobjective Genetic Algorithm : NSGA-II
         Kalyanmoy Deb, Associate Member, IEEE, Amrit Pratap, Sameer Agarwal, 
         and T. Meyarivan
-
         Parameters : 
-
             - func1 (callable) : 
                 Fonction objectif a optimiser de la forme f(x) ou x est 
                 l'argument de la fonction de forme scalaire ou array et 
                 renvoie un scalaire ou array.
-
             - func2 (callable) : 
                 Fonction objectif a optimiser de la forme f(x) ou x est 
                 l'argument de la fonction de forme scalaire ou array et 
                 renvoie un scalaire ou array.
-
             - xmin (array like) : 
                 Borne inferieure des variables d'optimisation. 
-
             - xmax (array like) : 
                 Borne supérieure des variables d'optimisation. Doit être de 
                 même dimension que xmin. 
-
             - constraints (List of dict) option : 
                 Definition des contraintes dans une liste de dictionnaires. 
                 Chaque dictionnaire contient les champs suivants 
@@ -1054,36 +43,28 @@ class continousBiObjective_NSGA():
                         Contraintes de type egalite 'eq' ou inegalite 'ineq' ; 
                     fun : callable
                         La fonction contrainte de la meme forme que func ; 
-
             - preprocess_function (callable or None) option : 
                 Definition d'une fonction sans renvoie de valeur à executer 
                 avant chaque evaluation de la fonction objectif func ou 
                 des contraintes.
-
             - func1_criterion (string) option : 
                 Definition du critere du premier objectif. 
                   >>'min' = minimisation
                   >>'max' = maximisation
                   >> else : maximisation
-
             - func2_criterion (string) option : 
                 Definition du critere du deuxieme objectif. 
                   >>'min' = minimisation
                   >>'max' = maximisation
                   >> else : maximisation
-
-
         Example : 
-
             import numpy as np 
-
             xmin,xmax = [-2],[2]
             x = np.linspace(xmin[0],xmax[0],150)
             f1 = lambda x : (0.5*x**2+x)/4
             f2 = lambda x : (0.5*x**2-x)/4
             c = lambda x : np.sin(x)
             cons = [{"type":'ineq','fun':c}]
-
             nsga_instance = continousBiObjective_NSGA(f1,
                                                     f2,
                                                     xmin,
@@ -1159,23 +140,17 @@ class continousBiObjective_NSGA():
     def setMutationParameters(self,mutation_step=0.10,mutation_rate=0.10,etam=0,method="normal") : 
         """
         Change les parametres de mutation. 
-
         Parameters : 
-
             - mutation_step (float) option : limite de deplacement par mutation. 
               Doit etre compris entre 0 et 1. Mutation normale ou uniforme.
-
             - mutation_rate (float) option : probabilite de mutation. Doit etre 
               compris entre 0 et 1.
             
             - etam (int) option : paramêtre de mutation polynomiale. Valeur conseillée 0. 
-
             - method (string) option : définition de la méthode de mutation. 
                 'uniform' : distribution uniforme de mutation ; 
                 'normal' : distribution normale, réduite, centrée de mutation ; 
                 'polynomial' : distribution polynomial [Ripon et al., 2007]
-
-
         [Ripon et al., 2007] :  Ripon K.S.N., Kwong S. and Man K.F. (2007) a 
         real-coding jumping gene genetic algorithm (RJGGA) for multiobjective optimization.
         Information Sciences, Volume 177,
@@ -1201,9 +176,7 @@ class continousBiObjective_NSGA():
     def setCrossoverParameters(self,crossover_factor=1.25,etac=1,method="SBX"):
         """
         Change les paramètres de croissement des solutions
-
         Parameter : 
-
             - crossover_factor (float) option : facteur de melange des 
               individus parents pour la méthode barycentrique (barycenter).
               Valeur conseillée 1.20 ; 
@@ -1215,8 +188,6 @@ class continousBiObjective_NSGA():
             - method (string) option : Définition de la méthode de croissement. 
                 "SBX" : Simulated Binary Crossover - [Deb and al 95] ;
                 "barycenter" : barycentre arithmétique ; 
-
-
         [Deb and al 95] : K. Deb, S. Agarwal, Simulated binary crossover
         for continuous search space, Complex Systems 9 (1995) 115–148
         """
@@ -1235,9 +206,7 @@ class continousBiObjective_NSGA():
     def setSharingDist(self,sharingDist=None) :
         """
         Change le rayon de diversite des solutions.
-
         Parameter : 
-
             - sharingDict (float or None) option : Rayon de diversite de 
               solution. Si None, le parametre est initialise a 
               1/(taille population).
@@ -1247,9 +216,7 @@ class continousBiObjective_NSGA():
     def setConstraintMethod(self,method="penality"):
         """
         Change la methode de prise en compte des contraintes. 
-
         Parameter : 
-
             method (str) option : Definition de la methode de gestion des 
             contraintes. 
                 Si method = 'penality' utilisation d'une penalisation 
@@ -1263,13 +230,10 @@ class continousBiObjective_NSGA():
     def setPenalityParams(self,constraintAbsTol=1e-3,penalityFactor=1e3,penalityGrowth=1.00):
         """
         Change le parametrage de la penalisation de contrainte. 
-
         Parameters : 
-
             - contraintAbsTol (float) option : tolerance des contraintes 
               d'egalite. Si la contrainte i ||ci(xk)|| <= contraintAbsTol, 
               la solution est viable. 
-
             - penalityFactor (float) option : facteur de penalisation. 
               La nouvelle fonction objectif est evaluee par la forme suivante :
                 penal_objective_func = objective_func + 
@@ -1279,7 +243,6 @@ class continousBiObjective_NSGA():
               l'algorithme le facteur de penalite peut croitre d'un facteur 
             penalityGrowth
                     penalityFactor_(k+1) = penalityFactor_(k)*penalityGrowth
-
         """
         self.__constraintAbsTol = constraintAbsTol
         self.__penalityFactor = penalityFactor
@@ -1289,9 +252,7 @@ class continousBiObjective_NSGA():
     def redefine_constraints(self,constraints=[]):
         """
         Permet de redefinir les contraintes du probleme. 
-
         Parameter : 
-
             - constraints (List of dict) option : 
                     Definition des contraintes dans une liste de dictionnaires. 
                     Chaque dictionnaire contient les champs suivants 
@@ -1306,9 +267,7 @@ class continousBiObjective_NSGA():
     def redefine_preprocess_func(self,preprocess_function=None):
         """
         Permet de redefinir la fonction de preprocessing. 
-
         Parameter :
-
             - preprocess_function (callable or None) option : 
                 Definition d'une fonction sans renvoie de valeur à executer 
                 avant chaque evaluation de la fonction objectif func 
@@ -1319,9 +278,7 @@ class continousBiObjective_NSGA():
     def define_initial_population(self,xstart=None,selector='LHS'):
         """
         Definition d'une population initiale. 
-
         Parameter : 
-
             - xstart (array(npop,ndof)) or None option : 
                 xstart est la solution initiale. Ses dimensions doivent etre de
                 (npop,ndof). 
@@ -1363,9 +320,7 @@ class continousBiObjective_NSGA():
     def setSelectionMethod(self,method="tournament"):
         """
         Change la methode de selection. 
-
         Parameter : 
-
             - method (str) option : Definition de la methode de selection. 
                 Si method = 'tournament' : selection par tournois. 
         """
@@ -1375,26 +330,20 @@ class continousBiObjective_NSGA():
     def redefine_objective(self,func1,func2,func1_criterion="max",func2_criterion="max"):
         """
         Permet de redefinir les fonctions objectifs. 
-
         Parameters : 
-
             - func1 (callable) : 
                 Fonction objectif a optimiser de la forme f(x) ou x est 
                 l'argument de la fonction de forme scalaire ou array et 
                 renvoie un scalaire ou array.
-
             - func2 (callable) : 
                 Fonction objectif a optimiser de la forme f(x) ou x est 
                 l'argument de la fonction de forme scalaire ou array et 
                 renvoie un scalaire ou array.
-
-
             - func1_criterion (string) option : 
                 Definition du critere du premier objectif. 
                   >>'min' = minimisation
                   >>'max' = maximisation
                   >> else : maximisation
-
             - func2_criterion (string) option : 
                 Definition du critere du deuxieme objectif. 
                   >>'min' = minimisation
@@ -1907,9 +856,7 @@ class continousBiObjective_NSGA():
     def optimize(self,npop,ngen,nfront=None,verbose=False,returnDict=False):
         """
         Algorithme d'optimisation bi-objectifs sous contrainte. 
-
         Parameters : 
-
             - npop (int) : 
                 Taille de la population. Si npop est impair, l'algorithm 
                 l'augmente de 1. Usuellement pour un probleme sans contrainte 
@@ -1917,25 +864,20 @@ class continousBiObjective_NSGA():
                 nombre de variable. Si les contraintes sont fortes, il sera 
                 utile d'augmenter la population. Ce parametre n'est pas pris 
                 en compte si une population initiale a ete definie.
-
             - ngen (int) : 
                 Nombre de generation. Usuellement une bonne pratique est de 
                 prendre 2 à 10 fois la taille de la population. 
-
             - nfront (int or None) option : 
                 Nombre de point maximum dans le front de Pareto. Si None, 
                 alors nfront = 3*npop
-
             - verbose (bool) option : 
                 Affiche l'etat de la recherche pour chaque iteration. 
                 Peut ralentir l'execution.
-
             - returnDict (bool) option : 
                 Si l'option est True alors l'algorithme retourne un 
                 dictionnaire. 
             
         Returns : 
-
             Si (returnDict = False) : 
                 tuple : (  xsolutions, objective1_solutions, 
                             objective2_solutions )
@@ -2033,8 +975,3 @@ if __name__ == '__main__' :
     plt.tight_layout()
 
     plt.show()
-
-
-    
-
-    

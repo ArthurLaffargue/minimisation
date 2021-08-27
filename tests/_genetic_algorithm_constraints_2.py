@@ -8,8 +8,9 @@ plt.rc('font',family='Serif')
 
 f0 = lambda x : (-(x[1] + 47) * np.sin(np.sqrt(abs(x[0]/2 + (x[1]  + 47))))
                 -x[0] * np.sin(np.sqrt(abs(x[0] - (x[1]  + 47)))))
-fc1 = lambda x : -(0.001*x**3-x)
+fc1 = lambda x : -(-0.0025*x**3-x)
 c0 = lambda x : x[1] - fc1(x[0])
+gc0 = lambda x : c0(x)**2
 
 xmin = np.array([-75,-75])
 xmax = np.array([75,75])
@@ -24,10 +25,7 @@ cons = [{'type': 'eq', 'fun': c0}]
 npop = 75
 ngen = 10000//npop
 
-ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,cons,
-                eqcons_atol = 0.1,penalityFactor =100,constraintMethod='penality')
-# ga_instance.setPenalityParams(constraintAbsTol=0.1,penalityFactor=100,penalityGrowth=1.0)
-# ga_instance.setConvergenceCriteria(stagnationThreshold=10000,tol=-1)
+ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,cons,tol=-1,eqcons_atol=0.001,penalityFactor=0.1,constraintMethod="penality")
 
 
 listXga = []
@@ -47,19 +45,19 @@ for i in range(10):
 
 fitnessArray = ga_instance.getStatOptimisation()
 lastPop = ga_instance.getLastPopulation()
+
 listXga = np.array(listXga)
 ## SCIPY
 bounds = [(xi,xj) for xi,xj in zip(xmin,xmax)]
 startX = np.mean(bounds,axis=1)
-res = minimize(f0,Xag,bounds=bounds,constraints=cons)
+res = minimize(f0,xopt,bounds=bounds,constraints=cons)
 xScipy = res.x
 
 
-distance_opt = np.mean(np.sqrt(np.sum( ((xopt-listXga)/(xmax-xmin))**2,axis=1 )))
+distance_opt = np.mean(np.sqrt(np.sum( ((xScipy-listXga)/(xmax-xmin))**2,axis=1 )))
 
 print("ACCURACY %.3f"%( (1-distance_opt)*100) )
 ## Graphe
-
 
 n = 300
 x = np.linspace(-75,75,n)

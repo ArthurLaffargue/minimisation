@@ -183,12 +183,6 @@ class differentialEvolutionSolver :
             g = c['fun']
             gi = g(xi)
 
-            if type == 'strictIneq'  :
-                feasibility &= gi>0
-                constrViol = np.minimum(gi,0.0)
-                constrViolation.append(abs(constrViol))
-                penality += constrViol**2
-
             if type == 'ineq' :
                 feasibility &= gi>=0
                 constrViol = np.minimum(gi,0.0)

@@ -5,7 +5,7 @@ plt.rc('font',family='Serif')
 ## Fonction objectif
 f0 = lambda x : (-(x[1] + 47) * np.sin(np.sqrt(abs(x[0]/2 + (x[1]  + 47))))
                 -x[0] * np.sin(np.sqrt(abs(x[0] - (x[1]  + 47)))))
-fc1 = lambda x : -(0.001*x**3-x)
+fc1 = lambda x : -(-0.0025*x**3-x)
 c0 = lambda x : x[1] - fc1(x[0])
 
 xmin = np.array([-75,-75])
@@ -18,7 +18,7 @@ from _differential_evolution import differential_evolution
 cons = [{'type': 'eq', 'fun': c0}]
 
 maxIter = 10000
-npop = 100
+npop = 75
 ngen = maxIter//npop
 
 listXde = []
@@ -30,9 +30,9 @@ for i in range(10):
                                         xmax,
                                         popsize=npop,
                                         maxIter=ngen,
-                                        strategy = 'rand2bin',
-                                        constraintAbsTol=0.1,
-                                        penalityFactor=100,
+                                        strategy = 'best2bin',
+                                        constraintAbsTol=0.001,
+                                        penalityFactor=0.1,
                                         returnDict=True,
                                         constraints=cons,
                                 )
