@@ -4,12 +4,14 @@ import numpy as np
 import numpy.random as rd
 import time
 
-from _utils import uniform_init_population_lhs,uniform_init_population_random
+from _utils import (uniform_init_population_lhs,uniform_init_population_random, 
+                    crowning_distance, fast_non_dominated_sort )
 
 
 class genetic_operator : 
     _mutation = {"normal" : "_normalMutation",
-                 "uniform" : "_uniformMutation"}
+                 "uniform" : "_uniformMutation",
+                 "polynomial" : "_polynomialMutation"}
 
     _crossover = {"SBX" : "_SBXcrossover",
                   "uniform" : "_uniformCrossover"}
@@ -27,6 +29,8 @@ class genetic_operator :
         else:
             raise ValueError("Please select a valid mutation strategy")
         self.__stepMut = mutation_step
+        self.__etam = 4
+        self.__alpham = 1/(self.__etam+1)
 
         #Crossover
         if crossover_method in self._crossover : 
@@ -130,7 +134,23 @@ class genetic_operator :
 
         return population
 
-class continousSingleObjectiveGA(genetic_operator) : 
+
+    def _polynomialMutation(self,population,npop) :
+        """
+        Operateur de mutation
+        """
+        probaMutation = rd.sample((npop,self.__ndof))
+
+        uMut = rd.sample((npop,self.__ndof))
+        uinf_filter = uMut <= 0.5
+        deltaMut = np.zeros_like(uMut)
+        deltaMut[uinf_filter] = (2*uMut[uinf_filter])**self.__alpham - 1 
+        deltaMut[~uinf_filter] = 1-(2*(1-uMut[~uinf_filter]))**self.__alpham
+        population = population + self.__stepMut*deltaMut*(probaMutation<=self.__rateMut)
+
+        return population
+
+class realSingleObjectiveGA(genetic_operator) : 
 
     _init_population = {'LHS' : '_latinhypercube_init',
                          'random' : "_random_init"}
@@ -801,7 +821,7 @@ class continousSingleObjectiveGA(genetic_operator) :
 
 
 
-class continousBiObjective_NSGA(genetic_operator):
+class realBiObjective_NSGA2(genetic_operator):
     _init_population = {'LHS' : '_latinhypercube_init',
                          'random' : "_random_init"}
 
@@ -809,7 +829,7 @@ class continousBiObjective_NSGA(genetic_operator):
 
     def __init__(self,func1,func2,xmin,xmax,constraints=[],preprocess_function=None,
                     func1_criterion="min",func2_criterion="min",
-                    mutation_method="normal",mutation_rate=0.10,mutation_step=0.10,
+                    mutation_method="polynomial",mutation_rate=0.10,mutation_step=0.10,
                     crossover_method="SBX",eta_cross=1.0,
                     sharing_distance=None,
                     eqcons_atol = 0.1,penalityFactor = 1e3,constraintMethod = "feasibility",
@@ -978,91 +998,6 @@ class continousBiObjective_NSGA(genetic_operator):
     ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
     ###                         OPERATEURS
     ### ---------------------------------------------------------------------------------------------------------------------------------------- ###
-    
-    def __fast_non_dominated_sort(self,x1,x2,selection_size=None):
-        size_pop = len(x1)
-        if selection_size is None :
-            selection_size = size_pop
-        index_R =  np.array(range(size_pop),dtype=int)
-        Fi = []
-        list_Sr = []
-        list_nr = []
-        rank_R = np.ones_like(index_R,dtype=int)*-1
-
-        for r,(x1r,x2r) in enumerate(zip(x1,x2)) :
-
-            dominated_test = (x1r<x1)&(x2r<x2)
-            dominance_test = (x1r>x1)&(x2r>x2)
-
-
-            nr = np.count_nonzero(dominated_test) #number of dominated solutions
-            Sr = [q for q in range(size_pop) if dominance_test[q]]
-
-            list_Sr.append(Sr)
-            list_nr.append(nr)
-
-            if nr == 0 :
-                rank_R[r] = 1
-                Fi.append(r)
-
-
-        i = 1
-        size = len(Fi)
-        while size > 0 and size<selection_size:
-            Q = []
-            for r in Fi :
-                Sr = list_Sr[r]
-                for q in Sr :
-                    nq = list_nr[q]
-                    nq = nq - 1
-                    list_nr[q] = nq
-                    if nq == 0 :
-                        rank_R[q] = i+1
-                        Q.append(q)
-            i += 1
-            Fi = Q
-            size += len(Fi)
-
-        non_ranked_sol = rank_R < 1
-        rank_R[non_ranked_sol] = max(rank_R)+1
-
-        return rank_R
-
-    def __crowning_distance(self,x1,x2,rank_R):
-        size = len(x1)
-        max_rank = max(rank_R)
-        crowning_dist = np.zeros_like(x1,dtype=float)
-        x1min,x1max = x1.min(),x1.max()
-        x2min,x2max = x2.min(),x2.max()
-        index_array = np.array(list(range(size)))
-
-        for rank_k in range(1,max_rank+1):
-            index_sol = index_array[rank_R == rank_k]
-            x1_k = x1[index_sol]
-            x2_k = x2[index_sol]
-            distance_k = np.zeros_like(x1_k,dtype=float)
-
-            sortindex = np.argsort(x1_k)
-            x1_k = x1_k[sortindex]
-            x2_k = x2_k[sortindex]
-            index_sol = index_sol[sortindex]
-            distance_k = distance_k[sortindex]
-            distance_k[1:-1:] = (x1_k[2:] - x1_k[:-2])/(x1max-x1min)
-            distance_k[0] = 1.0
-            distance_k[-1] = 1.0
-
-            sortindex = np.argsort(x2_k)
-            x2_k = x2_k[sortindex]
-            index_sol = index_sol[sortindex]
-            distance_k = distance_k[sortindex]
-            distance_k[1:-1:] += (x2_k[2:] - x2_k[:-2])/(x2max-x2min)
-            distance_k[0] += 1.0
-            distance_k[-1] += 1.0
-
-            crowning_dist[index_sol] = distance_k
-
-        dist_min,dist_max = crowning_dist.min(),crowning_dist.max()
-        return (crowning_dist-dist_min)/(dist_max-dist_min)
 
     def __evaluate_function_and_constraints(self,xi):
         """
@@ -1132,7 +1067,7 @@ class continousBiObjective_NSGA(genetic_operator):
             values1[unfeasibility] = o1min - 1
             values2[unfeasibility] = o2min - 1
         
-        rank_pop = self.__fast_non_dominated_sort(values1,values2,selection_size)
+        rank_pop = fast_non_dominated_sort(values1,values2,selection_size)
         return rank_pop
 
     def __selection_tournament(self,population,npop,rank_K,fitness):
@@ -1176,7 +1111,7 @@ class continousBiObjective_NSGA(genetic_operator):
         cviol = np.concatenate( (parents_cviol,children_cviol), axis=0)
 
         rank_pop = self.__sort_population(objective1,objective2,penality,feasibility,nelite)
-        fitness = self.__crowning_distance(objective1,objective2,rank_pop)
+        fitness = crowning_distance(objective1,objective2,rank_pop)
 
 
         dtype = [('rank',int),('crowning',float)]
@@ -1194,7 +1129,7 @@ class continousBiObjective_NSGA(genetic_operator):
         rank_pop = rank_pop[sorted_index]
         feasibility = feasibility[sorted_index]
         new_rank_pop = rank_pop[:npop]
-        new_fitness = self.__crowning_distance(new_objective1,new_objective2,new_rank_pop)
+        new_fitness = crowning_distance(new_objective1,new_objective2,new_rank_pop)
 
         rank1_filter = rank_pop == 1
         if self.__constraintMethod in ["feasibility","mixed"] :
@@ -1227,105 +1162,6 @@ class continousBiObjective_NSGA(genetic_operator):
                 parents_penality,
                 parents_feasibility,
                 parents_cviol)
-
-
-    # def __selection_elitisme(self,parents_pop,
-    #                               parents_obj1,
-    #                               parents_obj2,
-    #                               parents_penality,
-    #                               parents_feasibility,
-    #                               parents_cviol,
-    #                               children_pop,
-    #                               children_obj1,
-    #                               children_obj2,
-    #                               children_penality,
-    #                               children_feasibility,
-    #                               children_cviol) :
-
-    #     child_filter = children_feasibility[:]
-
-    #     feasible_pop = np.concatenate((parents_pop,children_pop[child_filter]),axis=0)
-    #     feasible_obj1 = np.concatenate( (parents_obj1,children_obj1[child_filter]) )
-    #     feasible_obj2 = np.concatenate( (parents_obj2,children_obj2[child_filter]) )
-
-    #     npop = len(children_pop)
-    #     nfeasible = len(feasible_pop)
-
-    #     if (nfeasible >= npop) :
-
-    #         rank_pop = self.__fast_non_dominated_sort(feasible_obj1,feasible_obj2,npop)
-    #         fitness = self.__crowning_distance(feasible_obj1,feasible_obj2,rank_pop)
-
-
-
-    #         values = list(zip(rank_pop,-fitness))
-    #         dtype = [('rank',int),('crowning',float)]
-    #         evaluation_array = np.array(values,dtype=dtype)
-    #         sorted_index = np.argsort(evaluation_array,order=["rank","crowning"])
-
-    #         population = feasible_pop[sorted_index][:npop]
-    #         objective1 = feasible_obj1[sorted_index][:npop]
-    #         objective2 = feasible_obj2[sorted_index][:npop]
-    #         rank_pop = rank_pop[sorted_index]
-    #         fitness = self.__crowning_distance(objective1,objective2,rank_pop[:npop])
-
-    #         parents_pop = feasible_pop[sorted_index][rank_pop==1]
-    #         parents_obj1 = feasible_obj1[sorted_index][rank_pop==1]
-    #         parents_obj2 = feasible_obj2[sorted_index][rank_pop==1]
-
-    #         if len(parents_pop) > self.__nfront :
-    #             parents_pop = parents_pop[:self.__nfront]
-    #             parents_obj1 = parents_obj1[:self.__nfront]
-    #             parents_obj2 = parents_obj2[:self.__nfront]
-    #         rank_pop = rank_pop[:npop]
-
-
-    #         return  (population,
-    #                 objective1,
-    #                 objective2,
-    #                 rank_pop,
-    #                 fitness,
-    #                 parents_pop,
-    #                 parents_obj1,
-    #                 parents_obj2,
-    #                 parents_penality*0.0,
-    #                 parents_feasibility*0.0,
-    #                 parents_cviol*0.0)
-
-
-    #     else :
-    #         nextend = npop-nfeasible
-    #         notfeasible = np.logical_not(children_feasibility)
-    #         notfeasible_pop = children_pop[notfeasible]
-    #         notfeasible_obj1 = children_obj1[notfeasible]
-    #         notfeasible_obj2 = children_obj2[notfeasible]
-
-    #         rank_pop = self.__fast_non_dominated_sort(feasible_obj1,feasible_obj2,nfeasible)
-    #         max_rank = max(rank_pop)
-    #         parents_pop = feasible_pop[rank_pop==1]
-    #         parents_obj1 = feasible_obj1[rank_pop==1]
-    #         parents_obj2 = feasible_obj2[rank_pop==1]
-
-    #         population = np.concatenate( (feasible_pop, notfeasible_pop[:nextend]), axis=0 )
-    #         objective1 = np.concatenate( (feasible_obj1, notfeasible_obj1[:nextend]) )
-    #         objective2 = np.concatenate( (feasible_obj2, notfeasible_obj2[:nextend]) )
-    #         rank_pop = np.concatenate( (rank_pop, [max_rank+1]*nextend) )
-
-    #         fitness = self.__crowning_distance(objective1,objective2,rank_pop)
-
-
-
-    #         return  (population,
-    #                 objective1,
-    #                 objective2,
-    #                 rank_pop,
-    #                 fitness,
-    #                 parents_pop,
-    #                 parents_obj1,
-    #                 parents_obj2,
-    #                 parents_penality*0.0,
-    #                 parents_feasibility*0.0,
-    #                 parents_cviol*0.0)
 
 
     def __runOptimization(self,npop,ngen,nfront=None,verbose=True):
@@ -1372,7 +1208,7 @@ class continousBiObjective_NSGA(genetic_operator):
         constrViolation) = self.__fitness_and_feasibility(Xarray,npop)
 
         rank_pop = self.__sort_population(objective1,objective2,penality,feasibility)
-        fitness = self.__crowning_distance(objective1,objective2,rank_pop)
+        fitness = crowning_distance(objective1,objective2,rank_pop)
         parents_pop = population[feasibility]
         parents_obj1 = objective1[feasibility]
         parents_obj2 = objective2[feasibility]
@@ -1536,7 +1372,7 @@ if __name__ == '__main__' :
     import matplotlib.pyplot as plt 
     
     ### GA exemple 
-    ga_instance = continousSingleObjectiveGA(lambda x : x[0]**2 + x[1]**2,
+    ga_instance = realSingleObjectiveGA(lambda x : x[0]**2 + x[1]**2,
                                             [-1,-1],
                                             [1,1])
 
@@ -1553,7 +1389,7 @@ if __name__ == '__main__' :
     f2 = lambda x : (0.5*x**2-x)/4
     c = lambda x : np.sin(x)
     cons = [{"type":'ineq','fun':c}]
-    nsga_instance = continousBiObjective_NSGA(f1,
+    nsga_instance = realBiObjective_NSGA2(f1,
                                               f2,
                                               xmin,
                                               xmax,

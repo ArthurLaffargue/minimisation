@@ -24,7 +24,7 @@ cons = [{"type" : "ineq","fun":g1},
 
 import sys
 sys.path.append("..")
-from _genetic_algorithm import continousBiObjective_NSGA
+from _genetic_algorithm import realBiObjective_NSGA2
 
 npop = 100
 ngen = 1000
@@ -32,7 +32,7 @@ front_size = None
 xmin,xmax = [0,0,1,0,1,0],[10,10,5,6,5,10]
 
 
-nsga_instance = continousBiObjective_NSGA(f1,
+nsga_instance = realBiObjective_NSGA2(f1,
                                         f2,
                                         xmin,
                                         xmax,
@@ -40,7 +40,7 @@ nsga_instance = continousBiObjective_NSGA(f1,
                                         func1_criterion='min',
                                         func2_criterion='min',
                                         penalityFactor=1E6,
-                                        # sharing_distance=1/npop,
+                                        #sharing_distance=1/npop,
                                         constraintMethod="penality")
 
 xfront,f1front,f2front = nsga_instance.optimize(npop,ngen,

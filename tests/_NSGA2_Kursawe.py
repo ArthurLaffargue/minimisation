@@ -15,7 +15,7 @@ cons = []
 
 import sys
 sys.path.append("..")
-from _genetic_algorithm import continousBiObjective_NSGA
+from _genetic_algorithm import realBiObjective_NSGA2
 
 npop = 20*5
 ngen = npop*5
@@ -23,13 +23,13 @@ front_size = None
 xmin,xmax = [-5,-5,-5],[5,5,5]
 
 
-nsga_instance = continousBiObjective_NSGA(f1,
-                                        f2,
-                                        xmin,
-                                        xmax,
-                                        constraints=cons,
-                                        func1_criterion='min',
-                                        func2_criterion='min')
+nsga_instance = realBiObjective_NSGA2(f1,
+                                    f2,
+                                    xmin,
+                                    xmax,
+                                    constraints=cons,
+                                    func1_criterion='min',
+                                    func2_criterion='min')
 
 xfront,f1front,f2front = nsga_instance.optimize(npop,ngen,
                                                 nfront=front_size,

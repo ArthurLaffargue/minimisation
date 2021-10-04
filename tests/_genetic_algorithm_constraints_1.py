@@ -16,14 +16,14 @@ xmax = [75,75]
 
 import sys
 sys.path.append("..")
-from _genetic_algorithm import continousSingleObjectiveGA
+from _genetic_algorithm import realSingleObjectiveGA
 
 cons = [{'type': 'ineq', 'fun': c1},
        {'type': 'ineq', 'fun': c2}]
 
 npop = 60
 ngen = npop*3
-ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,cons)
+ga_instance = realSingleObjectiveGA(f0,xmin,xmax,cons)
 Xag,Yag = ga_instance.minimize(npop,ngen,verbose=False)
 fitnessArray = ga_instance.getStatOptimisation()
 lastPop = ga_instance.getLastPopulation()

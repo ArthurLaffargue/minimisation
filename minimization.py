@@ -12,11 +12,11 @@ from _minimize_Powell import Powell
 
 # --- Optimisation globale stochastique
 from _simulated_annealing import simulatedAnnealing
-from _genetic_algorithms import continousSingleObjectiveGA,continousBiObjective_NSGA
+from _genetic_algorithm import realSingleObjectiveGA,realBiObjective_NSGA2
 
 __all__ = ["minimize_scalar",
-           "continousSingleObjectiveGA",
-           "continousBiObjective_NSGA"]
+           "realSingleObjectiveGA",
+           "realBiObjective_NSGA2"]
 
 method_minimizeScalar = ["goldenSearch",
                          "scalarGradient"]

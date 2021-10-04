@@ -18,14 +18,14 @@ xmax = np.array([75,75])
 
 import sys
 sys.path.append("..")
-from _genetic_algorithm import continousSingleObjectiveGA
+from _genetic_algorithm import realSingleObjectiveGA
 
 cons = [{'type': 'eq', 'fun': c0}]
 
 npop = 75
 ngen = 10000//npop
 
-ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,cons,tol=-1,eqcons_atol=0.001,penalityFactor=0.1,constraintMethod="penality")
+ga_instance = realSingleObjectiveGA(f0,xmin,xmax,cons,tol=-1,eqcons_atol=0.001,penalityFactor=0.1,constraintMethod="penality")
 
 
 listXga = []

@@ -181,9 +181,9 @@ Outputs :
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="minimization.continousBiObjective_NSGA"><code class="flex name class">
-<span>class <span class="ident">continousBiObjective_NSGA</span></span>
-<span>(</span><span>func1, func2, xmin, xmax, constraints=[], preprocess_function=None, func1_criterion='min', func2_criterion='min')</span>
+<dt id="minimization.realBiObjective_NSGA2"><code class="flex name class">
+<span>class <span class="ident">realBiObjective_NSGA2</span></span>
+<span>(</span><span>func1, func2, xmin, xmax, constraints=[], preprocess_function=None, func1_criterion='min', func2_criterion='min', mutation_method='polynomial', mutation_rate=0.1, mutation_step=0.1, crossover_method='SBX', eta_cross=1.0, sharing_distance=None, eqcons_atol=0.1, penalityFactor=1000.0, constraintMethod='feasibility', init='LHS')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>continousBiObjective_NSGA : </p>
@@ -191,76 +191,69 @@ Outputs :
 Recherche du front de Pareto de fonctions scalaires à variables
 continues sur l'intervalle [xmin;xmax].</p>
 <hr>
-<p>Source : </p>
-<p>A Fast and Elitist Multiobjective Genetic Algorithm : NSGA-II
+<p>Source :
+A Fast and Elitist Multiobjective Genetic Algorithm : NSGA-II
 Kalyanmoy Deb, Associate Member, IEEE, Amrit Pratap, Sameer Agarwal,
-and T. Meyarivan</p>
-<p>Parameters : </p>
-<pre><code>- func1 (callable) : 
-    Fonction objectif a optimiser de la forme f(x) ou x est 
-    l'argument de la fonction de forme scalaire ou array et 
-    renvoie un scalaire ou array.
-
-- func2 (callable) : 
-    Fonction objectif a optimiser de la forme f(x) ou x est 
-    l'argument de la fonction de forme scalaire ou array et 
-    renvoie un scalaire ou array.
-
-- xmin (array like) : 
-    Borne inferieure des variables d'optimisation.
-
-- xmax (array like) : 
-    Borne supérieure des variables d'optimisation. Doit être de 
-    même dimension que xmin.
-
-- constraints (List of dict) option : 
-    Definition des contraintes dans une liste de dictionnaires. 
-    Chaque dictionnaire contient les champs suivants 
-        type : str
-            Contraintes de type egalite 'eq' ou inegalite 'ineq' ; 
-        fun : callable
-            La fonction contrainte de la meme forme que func ;
-
-- preprocess_function (callable or None) option : 
-    Definition d'une fonction sans renvoie de valeur à executer 
-    avant chaque evaluation de la fonction objectif func ou 
-    des contraintes.
-
-- func1_criterion (string) option : 
-    Definition du critere du premier objectif. 
-      &gt;&gt;'min' = minimisation
-      &gt;&gt;'max' = maximisation
-      &gt;&gt; else : maximisation
-
-- func2_criterion (string) option : 
-    Definition du critere du deuxieme objectif. 
-      &gt;&gt;'min' = minimisation
-      &gt;&gt;'max' = maximisation
-      &gt;&gt; else : maximisation
-</code></pre>
-<p>Example : </p>
-<pre><code>import numpy as np
-
+and T. Meyarivan
+Parameters :
+- func1 (callable) :
+Fonction objectif a optimiser de la forme f(x) ou x est
+l'argument de la fonction de forme scalaire ou array et
+renvoie un scalaire ou array.
+- func2 (callable) :
+Fonction objectif a optimiser de la forme f(x) ou x est
+l'argument de la fonction de forme scalaire ou array et
+renvoie un scalaire ou array.
+- xmin (array like) :
+Borne inferieure des variables d'optimisation.
+- xmax (array like) :
+Borne supérieure des variables d'optimisation. Doit être de
+même dimension que xmin.
+- constraints (List of dict) option :
+Definition des contraintes dans une liste de dictionnaires.
+Chaque dictionnaire contient les champs suivants
+type : str
+Contraintes de type egalite 'eq' ou inegalite 'ineq' ;
+fun : callable
+La fonction contrainte de la meme forme que func ;
+- preprocess_function (callable or None) option :
+Definition d'une fonction sans renvoie de valeur à executer
+avant chaque evaluation de la fonction objectif func ou
+des contraintes.
+- func1_criterion (string) option :
+Definition du critere du premier objectif.
+&gt;&gt;'min' = minimisation
+&gt;&gt;'max' = maximisation
+&gt;&gt; else : maximisation
+- func2_criterion (string) option :
+Definition du critere du deuxieme objectif.
+&gt;&gt;'min' = minimisation
+&gt;&gt;'max' = maximisation
+&gt;&gt; else : maximisation
+Example :
+import numpy as np
 xmin,xmax = [-2],[2]
 x = np.linspace(xmin[0],xmax[0],150)
-f1 = lambda x : (0.5*x**2+x)/4
-f2 = lambda x : (0.5*x**2-x)/4
+f1 = lambda x : (0.5<em>x</em><em>2+x)/4
+f2 = lambda x : (0.5</em>x**2-x)/4
 c = lambda x : np.sin(x)
 cons = [{"type":'ineq','fun':c}]
-
 nsga_instance = continousBiObjective_NSGA(f1,
-                                        f2,
-                                        xmin,
-                                        xmax,
-                                        constraints=cons,
-                                        func1_criterion='min',
-                                        func2_criterion='min')
-
-xfront,f1front,f2front = nsga_instance.optimize(20,100)
+f2,
+xmin,
+xmax,
+constraints=cons,
+func1_criterion='min',
+func2_criterion='min')</p>
+<pre><code>xfront,f1front,f2front = nsga_instance.optimize(20,100)
 </code></pre></div>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>_genetic_algorithm.genetic_operator</li>
+</ul>
 <h3>Methods</h3>
 <dl>
-<dt id="minimization.continousBiObjective_NSGA.define_initial_population"><code class="name flex">
+<dt id="minimization.realBiObjective_NSGA2.define_initial_population"><code class="name flex">
 <span>def <span class="ident">define_initial_population</span></span>(<span>self, xstart=None, selector='LHS')</span>
 </code></dt>
 <dd>
@@ -279,43 +272,50 @@ xfront,f1front,f2front = nsga_instance.optimize(20,100)
         sinon 'LHS' ;
 </code></pre></div>
 </dd>
-<dt id="minimization.continousBiObjective_NSGA.optimize"><code class="name flex">
+<dt id="minimization.realBiObjective_NSGA2.getConstraintViolation"><code class="name flex">
+<span>def <span class="ident">getConstraintViolation</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="minimization.realBiObjective_NSGA2.getLastPopulation"><code class="name flex">
+<span>def <span class="ident">getLastPopulation</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="minimization.realBiObjective_NSGA2.optimize"><code class="name flex">
 <span>def <span class="ident">optimize</span></span>(<span>self, npop, ngen, nfront=None, verbose=False, returnDict=False)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Algorithme d'optimisation bi-objectifs sous contrainte. </p>
-<p>Parameters : </p>
-<pre><code>- npop (int) : 
-    Taille de la population. Si npop est impair, l'algorithm 
-    l'augmente de 1. Usuellement pour un probleme sans contrainte 
-    une population efficace est situee entre 5 et 20 fois le 
-    nombre de variable. Si les contraintes sont fortes, il sera 
-    utile d'augmenter la population. Ce parametre n'est pas pris 
-    en compte si une population initiale a ete definie.
-
-- ngen (int) : 
-    Nombre de generation. Usuellement une bonne pratique est de 
-    prendre 2 à 10 fois la taille de la population.
-
-- nfront (int or None) option : 
-    Nombre de point maximum dans le front de Pareto. Si None, 
-    alors nfront = 3*npop
-
-- verbose (bool) option : 
-    Affiche l'etat de la recherche pour chaque iteration. 
-    Peut ralentir l'execution.
-
-- returnDict (bool) option : 
-    Si l'option est True alors l'algorithme retourne un 
-    dictionnaire.
-</code></pre>
-<p>Returns : </p>
-<pre><code>Si (returnDict = False) : 
-    tuple : (  xsolutions, objective1_solutions, 
-                objective2_solutions )
-            (array(ndof,nfront), array(nfront), array(nfront))
-
-        - xsolutions sont les solutions composants le front 
+<div class="desc"><p>Algorithme d'optimisation bi-objectifs sous contrainte.
+Parameters :
+- npop (int) :
+Taille de la population. Si npop est impair, l'algorithm
+l'augmente de 1. Usuellement pour un probleme sans contrainte
+une population efficace est situee entre 5 et 20 fois le
+nombre de variable. Si les contraintes sont fortes, il sera
+utile d'augmenter la population. Ce parametre n'est pas pris
+en compte si une population initiale a ete definie.
+- ngen (int) :
+Nombre de generation. Usuellement une bonne pratique est de
+prendre 2 à 10 fois la taille de la population.
+- nfront (int or None) option :
+Nombre de point maximum dans le front de Pareto. Si None,
+alors nfront = 3*npop
+- verbose (bool) option :
+Affiche l'etat de la recherche pour chaque iteration.
+Peut ralentir l'execution.
+- returnDict (bool) option :
+Si l'option est True alors l'algorithme retourne un
+dictionnaire. </p>
+<p>Returns :
+Si (returnDict = False) :
+tuple : (
+xsolutions, objective1_solutions,
+objective2_solutions )
+(array(ndof,nfront), array(nfront), array(nfront))</p>
+<pre><code>        - xsolutions sont les solutions composants le front 
           de Pareto.
         - objective1_solutions sont les points de la fonction 1 
           dans le front de Pareto. 
@@ -332,171 +332,11 @@ Si (returnDict = True) :
         "f2" (array or None) : front de Pareto f2.
 </code></pre></div>
 </dd>
-<dt id="minimization.continousBiObjective_NSGA.redefine_constraints"><code class="name flex">
-<span>def <span class="ident">redefine_constraints</span></span>(<span>self, constraints=[])</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Permet de redefinir les contraintes du probleme. </p>
-<p>Parameter : </p>
-<pre><code>- constraints (List of dict) option : 
-        Definition des contraintes dans une liste de dictionnaires. 
-        Chaque dictionnaire contient les champs suivants 
-            type : str
-                Contraintes de type egalite 'eq' 
-                ou inegalite 'ineq' ; 
-            fun : callable
-                La fonction contrainte de la meme forme que func ;
-</code></pre></div>
-</dd>
-<dt id="minimization.continousBiObjective_NSGA.redefine_objective"><code class="name flex">
-<span>def <span class="ident">redefine_objective</span></span>(<span>self, func1, func2, func1_criterion='max', func2_criterion='max')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Permet de redefinir les fonctions objectifs. </p>
-<p>Parameters : </p>
-<pre><code>- func1 (callable) : 
-    Fonction objectif a optimiser de la forme f(x) ou x est 
-    l'argument de la fonction de forme scalaire ou array et 
-    renvoie un scalaire ou array.
-
-- func2 (callable) : 
-    Fonction objectif a optimiser de la forme f(x) ou x est 
-    l'argument de la fonction de forme scalaire ou array et 
-    renvoie un scalaire ou array.
-
-
-- func1_criterion (string) option : 
-    Definition du critere du premier objectif. 
-      &gt;&gt;'min' = minimisation
-      &gt;&gt;'max' = maximisation
-      &gt;&gt; else : maximisation
-
-- func2_criterion (string) option : 
-    Definition du critere du deuxieme objectif. 
-      &gt;&gt;'min' = minimisation
-      &gt;&gt;'max' = maximisation
-      &gt;&gt; else : maximisation
-</code></pre></div>
-</dd>
-<dt id="minimization.continousBiObjective_NSGA.redefine_preprocess_func"><code class="name flex">
-<span>def <span class="ident">redefine_preprocess_func</span></span>(<span>self, preprocess_function=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Permet de redefinir la fonction de preprocessing. </p>
-<p>Parameter :</p>
-<pre><code>- preprocess_function (callable or None) option : 
-    Definition d'une fonction sans renvoie de valeur à executer 
-    avant chaque evaluation de la fonction objectif func 
-    ou des contraintes.
-</code></pre></div>
-</dd>
-<dt id="minimization.continousBiObjective_NSGA.setConstraintMethod"><code class="name flex">
-<span>def <span class="ident">setConstraintMethod</span></span>(<span>self, method='penality')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change la methode de prise en compte des contraintes. </p>
-<p>Parameter : </p>
-<pre><code>method (str) option : Definition de la methode de gestion des 
-contraintes. 
-    Si method = 'penality' utilisation d'une penalisation 
-    quadratique. 
-    Si method = 'feasibility' les solutions non satisfaisante 
-    sont rejetees.
-</code></pre></div>
-</dd>
-<dt id="minimization.continousBiObjective_NSGA.setCrossoverParameters"><code class="name flex">
-<span>def <span class="ident">setCrossoverParameters</span></span>(<span>self, crossover_factor=1.25, etac=1, method='SBX')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change les paramètres de croissement des solutions</p>
-<p>Parameter : </p>
-<pre><code>- crossover_factor (float) option : facteur de melange des 
-  individus parents pour la méthode barycentrique (barycenter).
-  Valeur conseillée 1.20 ;
-
-- etac (int) option : indice de croissement de la méthode SBX.
-  Valeur conseillée 0.
-  Simulated Binary Crossover - [Deb and al 95]
-
-- method (string) option : Définition de la méthode de croissement. 
-    "SBX" : Simulated Binary Crossover - [Deb and al 95] ;
-    "barycenter" : barycentre arithmétique ;
-</code></pre>
-<p>[Deb and al 95] : K. Deb, S. Agarwal, Simulated binary crossover
-for continuous search space, Complex Systems 9 (1995) 115–148</p></div>
-</dd>
-<dt id="minimization.continousBiObjective_NSGA.setMutationParameters"><code class="name flex">
-<span>def <span class="ident">setMutationParameters</span></span>(<span>self, mutation_step=0.1, mutation_rate=0.1, etam=0, method='normal')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change les parametres de mutation. </p>
-<p>Parameters : </p>
-<pre><code>- mutation_step (float) option : limite de deplacement par mutation. 
-  Doit etre compris entre 0 et 1. Mutation normale ou uniforme.
-
-- mutation_rate (float) option : probabilite de mutation. Doit etre 
-  compris entre 0 et 1.
-
-- etam (int) option : paramêtre de mutation polynomiale. Valeur conseillée 0.
-
-- method (string) option : définition de la méthode de mutation. 
-    'uniform' : distribution uniforme de mutation ; 
-    'normal' : distribution normale, réduite, centrée de mutation ; 
-    'polynomial' : distribution polynomial [Ripon et al., 2007]
-</code></pre>
-<p>[Ripon et al., 2007] :
-Ripon K.S.N., Kwong S. and Man K.F. (2007) a
-real-coding jumping gene genetic algorithm (RJGGA) for multiobjective optimization.
-Information Sciences, Volume 177,
-Issue 2, 632-654</p></div>
-</dd>
-<dt id="minimization.continousBiObjective_NSGA.setPenalityParams"><code class="name flex">
-<span>def <span class="ident">setPenalityParams</span></span>(<span>self, constraintAbsTol=0.001, penalityFactor=1000.0, penalityGrowth=1.0)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change le parametrage de la penalisation de contrainte. </p>
-<p>Parameters : </p>
-<pre><code>- contraintAbsTol (float) option : tolerance des contraintes 
-  d'egalite. Si la contrainte i ||ci(xk)|| &lt;= contraintAbsTol, 
-  la solution est viable.
-
-- penalityFactor (float) option : facteur de penalisation. 
-  La nouvelle fonction objectif est evaluee par la forme suivante :
-    penal_objective_func = objective_func + 
-                    sum(ci**2 if ci not feasible)*penalityFactor
-
-- penalityGrowth (float) option : pour chaque iteration de 
-  l'algorithme le facteur de penalite peut croitre d'un facteur 
-penalityGrowth
-        penalityFactor_(k+1) = penalityFactor_(k)*penalityGrowth
-</code></pre></div>
-</dd>
-<dt id="minimization.continousBiObjective_NSGA.setSelectionMethod"><code class="name flex">
-<span>def <span class="ident">setSelectionMethod</span></span>(<span>self, method='tournament')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change la methode de selection. </p>
-<p>Parameter : </p>
-<pre><code>- method (str) option : Definition de la methode de selection. 
-    Si method = 'tournament' : selection par tournois.
-</code></pre></div>
-</dd>
-<dt id="minimization.continousBiObjective_NSGA.setSharingDist"><code class="name flex">
-<span>def <span class="ident">setSharingDist</span></span>(<span>self, sharingDist=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change le rayon de diversite des solutions.</p>
-<p>Parameter : </p>
-<pre><code>- sharingDict (float or None) option : Rayon de diversite de 
-  solution. Si None, le parametre est initialise a 
-  1/(taille population).
-</code></pre></div>
-</dd>
 </dl>
 </dd>
-<dt id="minimization.continousSingleObjectiveGA"><code class="flex name class">
-<span>class <span class="ident">continousSingleObjectiveGA</span></span>
-<span>(</span><span>func, xmin, xmax, constraints=[], preprocess_function=None)</span>
+<dt id="minimization.realSingleObjectiveGA"><code class="flex name class">
+<span>class <span class="ident">realSingleObjectiveGA</span></span>
+<span>(</span><span>func, xmin, xmax, constraints=[], preprocess_function=None, mutation_method='normal', mutation_rate=0.1, mutation_step=0.1, crossover_method='SBX', eta_cross=1.0, sharing_distance=None, atol=0.0, tol=0.001, stagThreshold=None, eqcons_atol=0.1, penalityFactor=1000.0, constraintMethod='penality', elitisme=True, elite_maxsize=None, init='LHS')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Instance de continousSingleObjectiveGA : </p>
@@ -559,9 +399,13 @@ Ouputs :
         constrViolation  :  []
         }
 </code></pre></div>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>_genetic_algorithm.genetic_operator</li>
+</ul>
 <h3>Methods</h3>
 <dl>
-<dt id="minimization.continousSingleObjectiveGA.define_initial_population"><code class="name flex">
+<dt id="minimization.realSingleObjectiveGA.define_initial_population"><code class="name flex">
 <span>def <span class="ident">define_initial_population</span></span>(<span>self, xstart=None, selector='LHS')</span>
 </code></dt>
 <dd>
@@ -580,19 +424,19 @@ Ouputs :
         sinon 'LHS' ;
 </code></pre></div>
 </dd>
-<dt id="minimization.continousSingleObjectiveGA.getLastPopulation"><code class="name flex">
+<dt id="minimization.realSingleObjectiveGA.getLastPopulation"><code class="name flex">
 <span>def <span class="ident">getLastPopulation</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="minimization.continousSingleObjectiveGA.getStatOptimisation"><code class="name flex">
+<dt id="minimization.realSingleObjectiveGA.getStatOptimisation"><code class="name flex">
 <span>def <span class="ident">getStatOptimisation</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="minimization.continousSingleObjectiveGA.maximize"><code class="name flex">
+<dt id="minimization.realSingleObjectiveGA.maximize"><code class="name flex">
 <span>def <span class="ident">maximize</span></span>(<span>self, npop, ngen, verbose=True, returnDict=False)</span>
 </code></dt>
 <dd>
@@ -636,12 +480,10 @@ Si (returnDict = False) :
         "optimization" (str) : minimisation ou maximisation.
         "success" (bool) : True si l'algorithm a converge.
         "x" (array or None) : Solution ou None si success = False.
-        "f" (array or None) : Maximum ou None si success = False. 
-        "constrViolation" (List of float) : violation des 
-            contraintes. Liste vide si aucune contrainte.
+        "f" (array or None) : Maximum ou None si success = False.
 </code></pre></div>
 </dd>
-<dt id="minimization.continousSingleObjectiveGA.minimize"><code class="name flex">
+<dt id="minimization.realSingleObjectiveGA.minimize"><code class="name flex">
 <span>def <span class="ident">minimize</span></span>(<span>self, npop, ngen, verbose=True, returnDict=False)</span>
 </code></dt>
 <dd>
@@ -685,187 +527,7 @@ Si (returnDict = False) :
         "optimization" (str) : minimisation ou maximisation.
         "success" (bool) : True si l'algorithm a converge.
         "x" (array or None) : Solution ou None si success = False.
-        "f" (array or None) : Minimum ou None si success = False. 
-        "constrViolation" (List of float) : violation des 
-            contraintes. Liste vide si aucune contrainte.
-</code></pre></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.redefine_constraints"><code class="name flex">
-<span>def <span class="ident">redefine_constraints</span></span>(<span>self, constraints=[])</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Permet de redefinir les contraintes du probleme. </p>
-<p>Parameter : </p>
-<pre><code>- constraints (List of dict) option : 
-        Definition des contraintes dans une liste de dictionnaires. 
-        Chaque dictionnaire contient les champs suivants 
-            type : str
-                Contraintes de type egalite 'eq' ou inegalite 'ineq'; 
-            fun : callable
-                La fonction contrainte de la meme forme que func ;
-</code></pre></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.redefine_objective"><code class="name flex">
-<span>def <span class="ident">redefine_objective</span></span>(<span>self, func)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Permet de redefinir la fonction objectif. </p>
-<p>Parameter : </p>
-<pre><code>- func (callable) : 
-    Fonction objectif a optimiser de la forme f(x) ou x est 
-    l'argument de la fonction de forme scalaire ou array et 
-    renvoie un scalaire ou array.
-</code></pre></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.redefine_preprocess_func"><code class="name flex">
-<span>def <span class="ident">redefine_preprocess_func</span></span>(<span>self, preprocess_function=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Permet de redefinir la fonction de preprocessing. </p>
-<p>Parameter</p>
-<pre><code>- preprocess_function (callable or None) option : 
-    Definition d'une fonction sans renvoie de valeur à executer 
-    avant chaque evaluation de la fonction objectif func ou des 
-    contraintes.
-</code></pre></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.setConstraintMethod"><code class="name flex">
-<span>def <span class="ident">setConstraintMethod</span></span>(<span>self, method='penality')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change la methode de prise en compte des contraintes. </p>
-<p>Parameter : </p>
-<pre><code>method (str) option : Definition de la methode de gestion des 
-contraintes. 
-    Si method = 'penality' utilisation d'une penalisation 
-    quadratique. 
-    Si method = 'feasibility' les solutions non satisfaisante 
-    sont rejetees.
-</code></pre></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.setConvergenceCriteria"><code class="name flex">
-<span>def <span class="ident">setConvergenceCriteria</span></span>(<span>self, stagnationThreshold=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Définition des paramètres de convergence de l'algorithme. d</p>
-<p>Parameters :</p>
-<pre><code>- stagnationThreshold (int or None) : nombre d'itération sans 
-  amélioration de la meilleure solution. Si None, pas d'évaluation du critère.
-</code></pre></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.setCrossoverParameters"><code class="name flex">
-<span>def <span class="ident">setCrossoverParameters</span></span>(<span>self, crossover_factor=1.25, etac=1, method='SBX')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change les paramètres de croissement des solutions</p>
-<p>Parameter : </p>
-<pre><code>- crossover_factor (float) option : facteur de melange des 
-  individus parents pour la méthode barycentrique (barycenter).
-  Valeur conseillée 1.20 ;
-
-- etac (int) option : indice de croissement de la méthode SBX.
-  Valeur conseillée 0.
-  Simulated Binary Crossover - [Deb and al 95]
-
-- method (string) option : Définition de la méthode de croissement. 
-    "SBX" : Simulated Binary Crossover - [Deb and al 95] ;
-    "barycenter" : barycentre arithmétique ;
-</code></pre>
-<p>[Deb and al 95] : K. Deb, S. Agarwal, Simulated binary crossover
-for continuous search space, Complex Systems 9 (1995) 115–148</p></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.setElitisme"><code class="name flex">
-<span>def <span class="ident">setElitisme</span></span>(<span>self, elitisme=True)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Booleen d'activation d'un operateur d'elitsime herite de la methode
-NSGA-II. L'elitisme melange les populations parents et enfants pour en
-extraire les meilleurs individus. Si cette option est desactivee, la
-methode de contrainte par faisabilite est impossible. L'algorithme
-utilisera une penalite.</p>
-<p>Parameter : </p>
-<pre><code>- elitisme (bool) option : actif (True) ou inactif (False)
-</code></pre></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.setMutationParameters"><code class="name flex">
-<span>def <span class="ident">setMutationParameters</span></span>(<span>self, mutation_step=0.1, mutation_rate=0.1, etam=0, method='normal')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change les parametres de mutation. </p>
-<p>Parameters : </p>
-<pre><code>- mutation_step (float) option : limite de deplacement par mutation. 
-  Doit etre compris entre 0 et 1. Mutation normale ou uniforme.
-
-- mutation_rate (float) option : probabilite de mutation. Doit etre 
-  compris entre 0 et 1.
-
-- etam (int) option : paramêtre de mutation polynomiale. Valeur conseillée 0.
-
-- method (string) option : définition de la méthode de mutation. 
-    'uniform' : distribution uniforme de mutation ; 
-    'normal' : distribution normale, réduite, centrée de mutation ; 
-    'polynomial' : distribution polynomial [Ripon et al., 2007]
-</code></pre>
-<p>[Ripon et al., 2007] :
-Ripon K.S.N., Kwong S. and Man K.F. (2007) a
-real-coding jumping gene genetic algorithm (RJGGA) for multiobjective optimization.
-Information Sciences, Volume 177,
-Issue 2, 632-654</p></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.setPenalityParams"><code class="name flex">
-<span>def <span class="ident">setPenalityParams</span></span>(<span>self, constraintAbsTol=0.001, penalityFactor=1000.0, penalityGrowth=1.0)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change le parametrage de la penalisation de contrainte. </p>
-<p>Parameters : </p>
-<pre><code>- contraintAbsTol (float) option : tolerance des contraintes 
-  d'egalite. Si la contrainte i ||ci(xk)|| &lt;= contraintAbsTol, la solution est viable.
-
-- penalityFactor (float) option : facteur de penalisation. 
-  La nouvelle fonction objectif est evaluee par la forme suivante :
-  penal_objective_func = objective_func +
-                    sum(ci**2 if ci not feasible)*penalityFactor
-
-- penalityGrowth (float) option : pour chaque iteration de 
-  l'algorithme le facteur de penalite peut croitre d'un facteur 
-  penalityGrowth
-</code></pre></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.setPreSelectNumber"><code class="name flex">
-<span>def <span class="ident">setPreSelectNumber</span></span>(<span>self, nbr_preselected=2)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change le nombre d'individus pre-selectionnes dans un mode de selection
-par tournois. </p>
-<p>Parameter : </p>
-<pre><code>- nbr_preselected (int) option : nombre d'individus participants à 
-  chaque tournois. Superieur a 1.
-</code></pre></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.setSelectionMethod"><code class="name flex">
-<span>def <span class="ident">setSelectionMethod</span></span>(<span>self, method='tournament')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change la methode de selection. </p>
-<p>Parameter : </p>
-<pre><code>- method (str) option : Definition de la methode de selection. 
-    Si method = 'tournament' : selection par tournois. 
-    Si method = 'SRWRS' : selection par "Stochastic remainder 
-    without replacement selection" [Golberg]
-</code></pre>
-<p>[Golberg]
-D.E Goldberg. Genetic Algorithms in Search,
-Optimization and Machine Learning. Reading MA Addison Wesley, 1989.</p></div>
-</dd>
-<dt id="minimization.continousSingleObjectiveGA.setSharingDist"><code class="name flex">
-<span>def <span class="ident">setSharingDist</span></span>(<span>self, sharingDist=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Change le rayon de diversite des solutions.</p>
-<p>Parameter : </p>
-<pre><code>- sharingDict (float or None) option : Rayon de diversite de 
-  solution. Si None, le parametre est initialise a 
-  1/(taille population).
+        "f" (array or None) : Minimum ou None si success = False.
 </code></pre></div>
 </dd>
 </dl>
@@ -887,41 +549,22 @@ Optimization and Machine Learning. Reading MA Addison Wesley, 1989.</p></div>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="minimization.continousBiObjective_NSGA" href="#minimization.continousBiObjective_NSGA">continousBiObjective_NSGA</a></code></h4>
+<h4><code><a title="minimization.realBiObjective_NSGA2" href="#minimization.realBiObjective_NSGA2">realBiObjective_NSGA2</a></code></h4>
 <ul class="">
-<li><code><a title="minimization.continousBiObjective_NSGA.define_initial_population" href="#minimization.continousBiObjective_NSGA.define_initial_population">define_initial_population</a></code></li>
-<li><code><a title="minimization.continousBiObjective_NSGA.optimize" href="#minimization.continousBiObjective_NSGA.optimize">optimize</a></code></li>
-<li><code><a title="minimization.continousBiObjective_NSGA.redefine_constraints" href="#minimization.continousBiObjective_NSGA.redefine_constraints">redefine_constraints</a></code></li>
-<li><code><a title="minimization.continousBiObjective_NSGA.redefine_objective" href="#minimization.continousBiObjective_NSGA.redefine_objective">redefine_objective</a></code></li>
-<li><code><a title="minimization.continousBiObjective_NSGA.redefine_preprocess_func" href="#minimization.continousBiObjective_NSGA.redefine_preprocess_func">redefine_preprocess_func</a></code></li>
-<li><code><a title="minimization.continousBiObjective_NSGA.setConstraintMethod" href="#minimization.continousBiObjective_NSGA.setConstraintMethod">setConstraintMethod</a></code></li>
-<li><code><a title="minimization.continousBiObjective_NSGA.setCrossoverParameters" href="#minimization.continousBiObjective_NSGA.setCrossoverParameters">setCrossoverParameters</a></code></li>
-<li><code><a title="minimization.continousBiObjective_NSGA.setMutationParameters" href="#minimization.continousBiObjective_NSGA.setMutationParameters">setMutationParameters</a></code></li>
-<li><code><a title="minimization.continousBiObjective_NSGA.setPenalityParams" href="#minimization.continousBiObjective_NSGA.setPenalityParams">setPenalityParams</a></code></li>
-<li><code><a title="minimization.continousBiObjective_NSGA.setSelectionMethod" href="#minimization.continousBiObjective_NSGA.setSelectionMethod">setSelectionMethod</a></code></li>
-<li><code><a title="minimization.continousBiObjective_NSGA.setSharingDist" href="#minimization.continousBiObjective_NSGA.setSharingDist">setSharingDist</a></code></li>
+<li><code><a title="minimization.realBiObjective_NSGA2.define_initial_population" href="#minimization.realBiObjective_NSGA2.define_initial_population">define_initial_population</a></code></li>
+<li><code><a title="minimization.realBiObjective_NSGA2.getConstraintViolation" href="#minimization.realBiObjective_NSGA2.getConstraintViolation">getConstraintViolation</a></code></li>
+<li><code><a title="minimization.realBiObjective_NSGA2.getLastPopulation" href="#minimization.realBiObjective_NSGA2.getLastPopulation">getLastPopulation</a></code></li>
+<li><code><a title="minimization.realBiObjective_NSGA2.optimize" href="#minimization.realBiObjective_NSGA2.optimize">optimize</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="minimization.continousSingleObjectiveGA" href="#minimization.continousSingleObjectiveGA">continousSingleObjectiveGA</a></code></h4>
+<h4><code><a title="minimization.realSingleObjectiveGA" href="#minimization.realSingleObjectiveGA">realSingleObjectiveGA</a></code></h4>
 <ul class="">
-<li><code><a title="minimization.continousSingleObjectiveGA.define_initial_population" href="#minimization.continousSingleObjectiveGA.define_initial_population">define_initial_population</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.getLastPopulation" href="#minimization.continousSingleObjectiveGA.getLastPopulation">getLastPopulation</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.getStatOptimisation" href="#minimization.continousSingleObjectiveGA.getStatOptimisation">getStatOptimisation</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.maximize" href="#minimization.continousSingleObjectiveGA.maximize">maximize</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.minimize" href="#minimization.continousSingleObjectiveGA.minimize">minimize</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.redefine_constraints" href="#minimization.continousSingleObjectiveGA.redefine_constraints">redefine_constraints</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.redefine_objective" href="#minimization.continousSingleObjectiveGA.redefine_objective">redefine_objective</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.redefine_preprocess_func" href="#minimization.continousSingleObjectiveGA.redefine_preprocess_func">redefine_preprocess_func</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.setConstraintMethod" href="#minimization.continousSingleObjectiveGA.setConstraintMethod">setConstraintMethod</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.setConvergenceCriteria" href="#minimization.continousSingleObjectiveGA.setConvergenceCriteria">setConvergenceCriteria</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.setCrossoverParameters" href="#minimization.continousSingleObjectiveGA.setCrossoverParameters">setCrossoverParameters</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.setElitisme" href="#minimization.continousSingleObjectiveGA.setElitisme">setElitisme</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.setMutationParameters" href="#minimization.continousSingleObjectiveGA.setMutationParameters">setMutationParameters</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.setPenalityParams" href="#minimization.continousSingleObjectiveGA.setPenalityParams">setPenalityParams</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.setPreSelectNumber" href="#minimization.continousSingleObjectiveGA.setPreSelectNumber">setPreSelectNumber</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.setSelectionMethod" href="#minimization.continousSingleObjectiveGA.setSelectionMethod">setSelectionMethod</a></code></li>
-<li><code><a title="minimization.continousSingleObjectiveGA.setSharingDist" href="#minimization.continousSingleObjectiveGA.setSharingDist">setSharingDist</a></code></li>
+<li><code><a title="minimization.realSingleObjectiveGA.define_initial_population" href="#minimization.realSingleObjectiveGA.define_initial_population">define_initial_population</a></code></li>
+<li><code><a title="minimization.realSingleObjectiveGA.getLastPopulation" href="#minimization.realSingleObjectiveGA.getLastPopulation">getLastPopulation</a></code></li>
+<li><code><a title="minimization.realSingleObjectiveGA.getStatOptimisation" href="#minimization.realSingleObjectiveGA.getStatOptimisation">getStatOptimisation</a></code></li>
+<li><code><a title="minimization.realSingleObjectiveGA.maximize" href="#minimization.realSingleObjectiveGA.maximize">maximize</a></code></li>
+<li><code><a title="minimization.realSingleObjectiveGA.minimize" href="#minimization.realSingleObjectiveGA.minimize">minimize</a></code></li>
 </ul>
 </li>
 </ul>

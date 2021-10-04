@@ -27,7 +27,7 @@ cons = [{'type': 'ineq', 'fun': c1},
 import sys
 sys.path.append("..")
 from _simulated_annealing import minimize_simulatedAnnealing
-from _genetic_algorithm import continousSingleObjectiveGA
+from _genetic_algorithm import realSingleObjectiveGA
 from _differential_evolution import differential_evolution
 
 nloop = 10
@@ -40,7 +40,7 @@ maxIter = 2000
 npop = 36
 ngen = (maxIter+1)//npop
 
-ga_instance = continousSingleObjectiveGA(f0,xmin,xmax,constraints=cons,tol=-1.0,constraintMethod="penality")
+ga_instance = realSingleObjectiveGA(f0,xmin,xmax,constraints=cons,tol=-1.0,constraintMethod="penality")
 
 for k in range(nloop):
     print("LOOP : ",k)

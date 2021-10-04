@@ -12,11 +12,11 @@ y = f(x)
 
 import sys
 sys.path.append("..")
-from _genetic_algorithm import continousSingleObjectiveGA
+from _genetic_algorithm import realSingleObjectiveGA
 
 npop = 25
 ngen = npop*3
-ga_instance = continousSingleObjectiveGA(f,[-2],[2])
+ga_instance = realSingleObjectiveGA(f,[-2],[2])
 Xag,Yag = ga_instance.minimize(npop,ngen,verbose=False,returnDict=False)
 fitnessArray = ga_instance.getStatOptimisation()
 lastPop = ga_instance.getLastPopulation()

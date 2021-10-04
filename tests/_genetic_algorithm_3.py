@@ -14,11 +14,11 @@ xmax = [75,75]
 
 import sys
 sys.path.append("..")
-from _genetic_algorithm import continousSingleObjectiveGA
+from _genetic_algorithm import realSingleObjectiveGA
 
 npop = 40
 ngen = 50
-ga_instance = continousSingleObjectiveGA(f0,xmin,xmax)
+ga_instance = realSingleObjectiveGA(f0,xmin,xmax)
 Xag,Yag = ga_instance.minimize(npop,ngen,verbose=False)
 fitnessArray = ga_instance.getStatOptimisation()
 lastPop = ga_instance.getLastPopulation()
